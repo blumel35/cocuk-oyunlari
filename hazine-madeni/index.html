@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Hazine Madeni: Kristal Kalp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Bu oyun bilerek hep "gece madeni" temasında; renkler tek yerden yönetilir. */
+:root{
+  --night:#1a1230;
+  --wall:#261b45;
+  --hole:#120b22;
+  --sheet:#30225a;
+  --lantern:#ffc857;
+  --lantern-deep:#b7791f;
+  --lantern-ink:#3a2300;
+  --mint:#5eead4;
+  --rose:#ff8aa0;
+  --text:#f6f0ff;
+  --muted:#c0b3e4;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0}
+body{
+  min-height:100dvh;
+  font-family:'Fredoka',ui-rounded,'Segoe UI Rounded','Nunito',system-ui,-apple-system,sans-serif;
+  color:var(--text);
+  background:radial-gradient(120% 55% at 50% -8%,rgba(255,200,87,.22),transparent 62%),var(--night);
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
+
+.app{
+  max-width:520px;margin:0 auto;min-height:100dvh;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 16px);
+  display:flex;flex-direction:column;gap:12px;
+}
+
+/* Üst bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;align-items:center;gap:8px}
+.brand svg{width:34px;height:34px;flex:none}
+.bt{font-weight:700;font-size:21px;line-height:1.05;color:var(--lantern)}
+.rank{font-size:14px;color:var(--muted);line-height:1.1}
+.pts{display:flex;align-items:center;gap:6px;font-weight:700;font-size:20px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.08)}
+.pts small{font-weight:500;font-size:13px;color:var(--muted)}
+
+/* Kat şeridi */
+.quest{padding:10px 12px 12px;border-radius:18px;background:rgba(255,255,255,.07);border:1.5px dashed rgba(255,200,87,.55);min-height:98px}
+.lvtitle{font-weight:600;font-size:16px;color:var(--lantern)}
+.qhint{margin:4px 0 0;color:var(--muted);font-size:14px;line-height:1.3}
+.goals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.goal{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--hole);border-radius:12px;padding:6px 2px}
+.gart{width:34px;height:34px}
+.gart svg{width:100%;height:100%;filter:brightness(0) invert(1);opacity:.35}
+.goal.got .gart svg{filter:none;opacity:1}
+.gtxt{font-size:12px;line-height:1.1;text-align:center;color:var(--muted)}
+.goal.got .gtxt{color:var(--text);font-weight:600}
+.goalcount{margin-top:8px;font-size:18px;font-weight:600}
+.goalcount b{color:var(--lantern)}
+.ready{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;font-size:18px;font-weight:600;color:var(--mint)}
+.qbtn{border:0;border-radius:14px;padding:10px 16px;font-weight:700;font-size:16px;background:var(--lantern);color:var(--lantern-ink);box-shadow:0 3px 0 var(--lantern-deep)}
+
+/* Maden duvarı */
+.wall{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px;border-radius:26px;
+  background:var(--wall);box-shadow:inset 0 0 0 2px rgba(255,255,255,.06),inset 0 8px 24px rgba(0,0,0,.35);
+  user-select:none;-webkit-user-select:none;
+}
+.cell{position:relative;aspect-ratio:1;border-radius:24%;background:var(--hole);box-shadow:inset 0 3px 8px rgba(0,0,0,.6)}
+.wall.enter .cell{animation:drop .38s cubic-bezier(.2,1.2,.4,1) both;animation-delay:calc(var(--i) * 20ms)}
+.rock{
+  position:absolute;inset:0;border:0;padding:0;border-radius:var(--br);touch-action:manipulation;
+  background:
+    radial-gradient(circle at 26% 22%,rgba(255,255,255,.24) 0 11%,transparent 12%),
+    radial-gradient(circle at 74% 72%,rgba(0,0,0,.18) 0 17%,transparent 18%),
+    radial-gradient(circle at 34% 28%,var(--r1),var(--r2) 72%);
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.22),inset 0 -6px 0 rgba(0,0,0,.28),0 3px 0 rgba(0,0,0,.4);
+  z-index:2;
+}
+.rock.hit{animation:bump .22s ease-out}
+.rock.gone{animation:crumble .32s ease-in forwards;pointer-events:none}
+.peek{position:absolute;left:33%;top:30%;width:34%;height:40%;border-radius:50%;background:var(--peek,#fff);filter:blur(7px);opacity:0;transition:opacity .2s;pointer-events:none}
+.rock[data-gem][data-dmg="1"] .peek,.rock[data-gem][data-dmg="2"] .peek{opacity:.9}
+.cracks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cracks path{fill:none;stroke:#140c26;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .1s}
+.rock[data-dmg="1"] .c1,.rock[data-dmg="2"] .c1{opacity:.85}
+.rock[data-dmg="2"] .c2{opacity:.85}
+.prize{position:absolute;inset:6%;display:grid;place-items:center;opacity:0;transform:scale(.5);z-index:1}
+.prize svg{width:100%;height:100%}
+.prize.show{animation:pop .5s cubic-bezier(.2,1.4,.4,1) forwards}
+.prize.gem svg{filter:drop-shadow(0 0 9px var(--glow,#fff))}
+.deb{position:absolute;left:50%;top:50%;border-radius:30%;pointer-events:none;z-index:3;animation:fly .55s ease-out forwards}
+
+.tip{margin:0;padding:8px 12px;border-radius:14px;background:rgba(255,255,255,.07);color:var(--muted);font-size:15px;line-height:1.3;text-align:center;min-height:2.6em}
+.hstats{display:flex;align-items:center;gap:8px}
+.voicebtn{width:42px;height:42px;flex:none;border-radius:50%;border:0;background:rgba(255,255,255,.1);display:grid;place-items:center;padding:0}
+.voicebtn svg{width:22px;height:22px}
+
+/* Usta Kıvırcık'ın büyük konuşma balonu */
+.kb{position:fixed;left:14px;right:14px;max-width:492px;margin:0 auto;top:calc(env(safe-area-inset-top) + 74px);z-index:40;
+  display:flex;align-items:center;gap:10px;padding:8px 16px 8px 8px;border-radius:24px;
+  background:var(--lantern);color:var(--lantern-ink);box-shadow:0 8px 24px rgba(0,0,0,.45);
+  opacity:0;transform:translateY(-14px) scale(.95);pointer-events:none;transition:opacity .25s,transform .25s}
+.kb.low{top:auto;bottom:calc(env(safe-area-inset-bottom) + 18px)}
+.kb.show{opacity:1;transform:none}
+.kb svg{width:54px;height:54px;flex:none}
+.kb.show svg{animation:hop .5s ease-out}
+.kb p{margin:0;font-size:18px;font-weight:600;line-height:1.25}
+
+#sndveil{z-index:32}
+.snd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left;font-size:18px;font-weight:500}
+.switch{width:54px;height:32px;flex:none;border:0;border-radius:999px;background:#4a4062;position:relative;padding:0}
+.switch::after{content:'';position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch[aria-checked="true"]{background:var(--mint)}
+.switch[aria-checked="true"]::after{transform:translateX(22px)}
+.snd-block{text-align:left;margin-top:8px}
+.snd-lab{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
+.snd-sl{width:100%;accent-color:var(--lantern)}
+.snd-sel{width:100%;min-height:48px;border-radius:14px;border:0;background:var(--hole);color:var(--text);font:inherit;font-size:16px;padding:0 12px}
+
+/* Hazine Avı */
+.veil.hunt{align-items:flex-start;justify-content:center;background:var(--night);z-index:25;overflow:auto}
+.huntbox{width:100%;max-width:520px;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 16px);display:flex;flex-direction:column;gap:10px;text-align:center}
+.htop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.htime{font-weight:700;font-size:34px;font-variant-numeric:tabular-nums;line-height:1}
+.htime.low{color:var(--rose)}
+.hscore{font-size:16px;color:var(--muted);min-width:78px;text-align:right}
+.hscore b{font-size:26px;color:var(--lantern)}
+.hbar{height:12px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.hbar i{display:block;height:100%;width:100%;background:var(--mint);border-radius:99px;transition:width .1s linear}
+.hbar.low i{background:var(--rose)}
+.htarget{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:18px;background:rgba(255,255,255,.07);border:1.5px dashed rgba(255,200,87,.55);text-align:left}
+.htarget .gart{width:58px;height:58px;padding:6px;background:var(--hole);border-radius:14px;flex:none}
+.htxt{flex:1;min-width:0}
+.hstars{font-size:22px;color:var(--lantern);letter-spacing:2px;flex:none}
+.hcount{position:fixed;inset:0;z-index:30;display:grid;place-items:center;font-size:120px;font-weight:700;color:var(--lantern);pointer-events:none;text-shadow:0 6px 0 rgba(0,0,0,.4)}
+.float{position:absolute;left:50%;top:22%;transform:translateX(-50%);font-weight:700;font-size:22px;z-index:4;pointer-events:none;text-shadow:0 2px 0 rgba(0,0,0,.6);animation:floatup .85s ease-out forwards}
+.float.mint{color:var(--mint)}
+.float.rose{color:var(--rose)}
+
+/* Profil */
+#profveil{z-index:27}
+.profchip{align-self:flex-end;display:flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:6px 16px 6px 8px;background:rgba(255,255,255,.1);text-align:left;color:var(--text)}
+.profchip svg{width:36px;height:36px;flex:none}
+.profchip b{display:block;font-size:16px;line-height:1.1}
+.profchip small{display:block;font-size:13px;color:var(--muted);line-height:1.1}
+.pfhead{display:flex;align-items:center;gap:14px;text-align:left}
+.pfav{width:84px;height:84px;flex:none;border-radius:50%;background:var(--hole);padding:6px}
+.pfav svg{width:100%;height:100%}
+.pfname{flex:1;min-width:0}
+.pfinput{width:100%;min-height:48px;border-radius:14px;border:0;background:var(--hole);color:var(--text);font:inherit;font-size:20px;font-weight:600;padding:0 14px}
+.pfstats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0 6px}
+.pfstat{background:var(--hole);border-radius:16px;padding:10px 6px}
+.pfstat b{display:block;font-size:26px;color:var(--lantern);line-height:1.1}
+.pfstat small{color:var(--muted);font-size:14px}
+.pfstat.wide{grid-column:1/-1;padding:14px}
+.pfh{margin:18px 0 8px;font-size:18px;text-align:left}
+.pflv{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pflv div{background:var(--hole);border-radius:12px;padding:8px 2px;font-size:13px;color:var(--muted)}
+.pflv b{display:block;color:var(--lantern);font-size:14px;letter-spacing:1px}
+
+/* Taşları Tanıyalım */
+.pname{font-size:32px;font-weight:700;color:var(--lantern);margin-top:6px}
+.ltitle{font-weight:700;font-size:18px;color:var(--lantern);text-align:center;flex:1}
+.lprog{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.lslot{background:var(--hole);border-radius:12px;padding:4px;aspect-ratio:1;display:grid;place-items:center}
+.lslot svg{width:100%;height:100%;filter:brightness(0) invert(1);opacity:.22}
+.lslot.got svg{filter:none;opacity:1}
+.lprompt{font-size:22px;font-weight:600;margin:6px 0 2px}
+.lwall{grid-template-columns:repeat(3,1fr);gap:12px}
+.opt.ball{aspect-ratio:auto;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:16px}
+.dot{width:42px;height:42px;border-radius:50%;border:2px solid rgba(255,255,255,.45)}
+
+/* Yıldız taş şovu */
+.stage{position:fixed;inset:0;z-index:45;display:none;place-items:center;pointer-events:none;overflow:hidden}
+.stage.on{display:grid}
+.stage .rays{position:absolute;width:150vmax;height:150vmax;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,rgba(255,200,87,.4) 0 9deg,transparent 9deg 18deg);
+  -webkit-mask-image:radial-gradient(circle,#000 8%,transparent 55%);mask-image:radial-gradient(circle,#000 8%,transparent 55%);
+  animation:spin 3s linear infinite,rayfade 1.3s ease-out forwards}
+.stage .bigwrap{position:relative;text-align:center;animation:bigpop 1.3s cubic-bezier(.2,1.4,.4,1) forwards}
+.stage .big{width:min(58vw,250px);margin:0 auto}
+.stage .big svg{width:100%;height:auto;filter:drop-shadow(0 0 26px var(--glow,#fff))}
+.stage .txt{margin-top:8px;font-size:34px;font-weight:700;color:var(--lantern);text-shadow:0 4px 0 rgba(0,0,0,.6);padding:0 12px}
+.conf{position:absolute;left:50%;top:50%;width:10px;height:15px;border-radius:2px;animation:conf 1.15s ease-out forwards}
+
+.dock{display:flex;gap:10px;margin-top:auto}
+.dockbtn{flex:1;min-height:52px;border:0;border-radius:16px;font-weight:600;font-size:17px;background:rgba(255,255,255,.1)}
+.dockbtn.primary{background:var(--lantern);color:var(--lantern-ink);box-shadow:0 3px 0 var(--lantern-deep)}
+.dockbtn b{margin-left:4px}
+
+/* Ana menü */
+.veil.home{align-items:stretch;justify-content:center;background:radial-gradient(120% 55% at 50% -8%,rgba(255,200,87,.22),transparent 62%),var(--night);z-index:24;overflow:auto}
+.homebox{width:100%;max-width:520px;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 20px);display:flex;flex-direction:column;gap:12px;text-align:center}
+.homehero svg{width:92px;height:92px}
+.homehero h1{margin:2px 0 0;font-size:34px;line-height:1.1;color:var(--lantern)}
+.homehero p{margin:4px 0 6px;color:var(--muted);font-size:18px}
+.mode{position:relative;display:flex;align-items:center;gap:14px;width:100%;min-height:92px;padding:14px 16px;border:0;border-radius:22px;text-align:left;color:var(--text);box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.mode .mi{width:58px;height:58px;flex:none;display:grid;place-items:center}
+.mode .mi svg{width:100%;height:100%}
+.mode b{display:block;font-size:22px;line-height:1.1}
+.mode small{display:block;margin-top:4px;font-size:15px;line-height:1.25;opacity:.92}
+.mode.adv{background:var(--lantern);color:var(--lantern-ink);box-shadow:0 4px 0 var(--lantern-deep)}
+.mode.hunt{background:#1f6b62}
+.mode.learn{background:#4a3a8a}
+.mode.free{background:#4d4266}
+
+/* Paneller */
+.veil{position:fixed;inset:0;z-index:20;display:none;align-items:flex-end;justify-content:center;background:rgba(10,6,20,.74)}
+.veil.open{display:flex}
+#arenaveil{z-index:25}
+#cardveil{z-index:30}
+#talkveil{z-index:35}
+.sheet{
+  width:100%;max-width:520px;max-height:94dvh;overflow:auto;text-align:center;
+  background:var(--sheet);border-radius:28px 28px 0 0;
+  padding:22px 18px calc(env(safe-area-inset-bottom) + 20px);
+  animation:rise .28s ease-out;
+}
+.sheet h2{margin:6px 0 4px;font-size:32px;font-weight:700;line-height:1.1}
+.badge{display:inline-block;padding:4px 14px;border-radius:999px;background:rgba(255,255,255,.12);font-weight:500;font-size:15px}
+.badge.new{background:var(--lantern);color:var(--lantern-ink);font-weight:700}
+.gemart{position:relative;width:150px;height:150px;margin:10px auto 4px;display:grid;place-items:center;animation:gemin .5s cubic-bezier(.2,1.4,.4,1)}
+.gemart::before{content:'';position:absolute;inset:8%;border-radius:50%;background:var(--glow,#fff);filter:blur(30px);opacity:.5}
+.gemart svg{position:relative;width:100%;height:100%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.gemart.silh svg{filter:brightness(0) invert(1);opacity:.5;transition:opacity .4s}
+.gemart.silh::before{opacity:0;transition:opacity .4s}
+.gemart.silh.on svg{filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));opacity:1}
+.gemart.silh.on::before{opacity:.5}
+.chip{display:inline-block;margin-top:4px;padding:4px 14px;border-radius:999px;background:rgba(255,255,255,.1);font-size:15px}
+.fact{margin:14px auto;max-width:34ch;font-size:18px;line-height:1.4}
+.reward{margin:8px auto 4px;padding:8px 14px;border-radius:14px;background:rgba(94,234,212,.16);color:var(--mint);font-weight:600;font-size:17px}
+.btn{display:block;width:100%;min-height:54px;margin-top:14px;border:0;border-radius:16px;font-weight:700;font-size:19px;background:var(--lantern);color:var(--lantern-ink);box-shadow:0 4px 0 var(--lantern-deep)}
+.btn.ghost{background:rgba(255,255,255,.1);color:var(--text);box-shadow:none;font-weight:600}
+.btn.small{width:auto;min-height:44px;margin:0;padding:0 16px;font-size:16px}
+.linkbtn{background:none;border:0;padding:10px;color:var(--muted);text-decoration:underline;font-size:14px}
+
+/* Usta Kıvırcık konuşması */
+.who{display:flex;align-items:center;gap:12px;text-align:left}
+.who svg{width:76px;height:76px;flex:none}
+.who b{font-size:20px;color:var(--lantern)}
+.bubble{margin:12px 0 2px;padding:14px 16px;border-radius:20px;background:rgba(255,255,255,.1);font-size:19px;line-height:1.4;text-align:left}
+.dots{display:flex;justify-content:center;gap:6px;margin-top:12px}
+.dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
+.dots i.on{background:var(--lantern)}
+
+/* Kat kapısı */
+.ahead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;margin-bottom:6px}
+.alv{font-weight:600;color:var(--lantern);font-size:16px}
+.adoor{display:flex;align-items:center;gap:10px}
+.adoor svg{width:36px;height:42px;flex:none}
+.doorbig{width:92px;height:107px;margin:2px auto 8px;animation:gemin .5s cubic-bezier(.2,1.4,.4,1)}
+.doorbig svg{width:100%;height:100%}
+.aprog{color:var(--muted);font-size:14px}
+.lamps{display:flex;gap:4px}
+.lamp{display:block;transition:filter .3s}
+.lamp.on{filter:drop-shadow(0 0 6px rgba(255,200,87,.85))}
+.qq{font-size:24px;line-height:1.2;margin:8px 0 0;font-weight:700}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.opts.names{grid-template-columns:1fr}
+.opt{border:2px solid transparent;border-radius:18px;background:var(--hole);padding:10px;aspect-ratio:1;display:grid;place-items:center}
+.opt svg{width:100%;height:100%}
+.opt.name{aspect-ratio:auto;min-height:56px;font-weight:600;font-size:21px}
+.opt.wrong{border-color:var(--rose);opacity:.55;animation:shake .35s}
+.opt.right{border-color:var(--mint);box-shadow:0 0 0 4px rgba(94,234,212,.25)}
+.sw{display:inline-block;width:18px;height:18px;border-radius:6px;margin-right:10px;vertical-align:-3px}
+.fb{min-height:1.6em;margin:12px 0 0;font-size:18px;font-weight:600;line-height:1.3}
+.fb.ok{color:var(--mint)}
+.fb.no{color:var(--rose)}
+.starsrow{font-size:46px;letter-spacing:6px;color:var(--lantern);line-height:1.1;margin:6px 0}
+.starsrow .off{color:rgba(255,255,255,.2)}
+.sum{margin:6px auto;font-size:18px;line-height:1.4;max-width:32ch}
+.heart{width:170px;height:170px}
+
+/* Defter */
+.bookhead{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;margin-bottom:14px}
+.bookhead h2{font-size:26px;margin:0}
+.sub{margin:2px 0 0;color:var(--muted);font-size:15px}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slot{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px 8px;border-radius:18px;background:var(--hole);border:2px solid transparent}
+button.slot{border-color:var(--glow)}
+.slot .art{width:64px;height:64px;display:block}
+.slot .art svg{width:100%;height:100%}
+.slot .nm{font-weight:600;font-size:15px}
+.slot .cnt{position:absolute;top:6px;right:8px;font-size:13px;font-weight:700;color:var(--lantern)}
+.slot .rz{position:absolute;top:5px;left:6px;width:24px;height:24px}
+.rzbig{width:88px;height:88px;margin:6px auto 0;animation:gemin .5s cubic-bezier(.2,1.4,.4,1)}
+.rzbig svg{width:100%;height:100%}
+.nudge{margin:10px auto 0;max-width:30ch;color:var(--lantern);font-weight:600;font-size:16px;line-height:1.3}
+.hintline{margin:14px 0 0;text-align:center;color:var(--muted);font-size:14px}
+.slot.locked .art svg{filter:brightness(0) invert(1);opacity:.2}
+.slot.locked .nm{color:var(--muted)}
+.slot.target{border:2px dashed var(--lantern)}
+.slot.target .nm{color:var(--lantern)}
+.reset{margin-top:18px;text-align:center;font-size:15px;color:var(--muted)}
+.reset .row{display:flex;gap:10px;justify-content:center;margin-top:8px}
+
+/* Katlar haritası */
+.lvl{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:2px solid transparent;border-radius:18px;background:var(--hole);padding:12px;margin-bottom:8px}
+.lvl .num{width:40px;height:40px;flex:none;border-radius:50%;background:var(--lantern);color:var(--lantern-ink);display:grid;place-items:center;font-weight:700;font-size:20px}
+.lvl .lt{flex:1;display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.lvl .lt b{font-size:18px}
+.lvl .lt small{color:var(--muted);font-size:14px}
+.lvl .lstars{color:var(--lantern);font-size:18px;letter-spacing:1px;flex:none}
+.lvl.locked{opacity:.5}
+.lvl.locked .num{background:#4a4062;color:var(--muted)}
+.lvl.now{border-color:var(--mint)}
+
+@keyframes bump{0%{transform:scale(1)}30%{transform:scale(.88) rotate(-4deg)}65%{transform:scale(.97) rotate(3deg)}100%{transform:scale(1)}}
+@keyframes crumble{0%{transform:scale(1)}35%{transform:scale(1.08) rotate(3deg)}100%{transform:scale(.4) rotate(-12deg);opacity:0}}
+@keyframes pop{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}
+@keyframes fly{to{transform:translate(var(--dx),var(--dy)) rotate(200deg);opacity:0}}
+@keyframes drop{from{opacity:0;transform:translateY(-14px) scale(.85)}to{opacity:1;transform:none}}
+@keyframes rise{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes gemin{0%{transform:scale(.5) rotate(-12deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes hop{0%{transform:translateY(0)}40%{transform:translateY(-7px) rotate(-6deg)}100%{transform:translateY(0)}}
+@keyframes floatup{to{transform:translate(-50%,-38px);opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes rayfade{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+@keyframes bigpop{0%{transform:scale(.2)}35%{transform:scale(1.25)}60%{transform:scale(1)}85%{opacity:1}100%{transform:scale(1.05);opacity:0}}
+@keyframes conf{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(var(--cx),var(--cy)) rotate(540deg);opacity:0}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0s !important;transition-duration:.01ms !important}
+  .deb{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 100 100" aria-hidden="true" id="brandmole"></svg>
+      <div><div class="bt">Hazine Madeni</div><div class="rank" id="rank">Çırak</div></div>
+    </div>
+    <div class="hstats">
+      <button class="voicebtn" id="voicebtn" type="button" hidden></button>
+      <div class="pts" role="img" aria-label="Puan">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#ffc857" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>
+        <span id="pts">0</span><small>puan</small>
+      </div>
+    </div>
+  </header>
+
+  <section class="quest" id="quest" aria-live="polite"></section>
+  <main class="wall" id="wall" aria-label="Maden duvarı"></main>
+  <p class="tip" id="status" role="status"></p>
+
+  <nav class="dock">
+    <button class="dockbtn" id="homebtn" type="button">Menü</button>
+    <button class="dockbtn" id="mapbtn" type="button">Katlar</button>
+    <button class="dockbtn primary" id="bookbtn" type="button">Defterim <b id="bookcount">0/12</b></button>
+  </nav>
+</div>
+
+<div class="veil" id="mapveil"><div class="sheet" id="mapsheet" role="dialog" aria-modal="true" aria-label="Katlar"></div></div>
+<div class="veil" id="bookveil"><div class="sheet" id="booksheet" role="dialog" aria-modal="true" aria-label="Koleksiyon defteri"></div></div>
+<div class="veil" id="arenaveil"><div class="sheet" id="arenasheet" role="dialog" aria-modal="true" aria-label="Kat kapısı"></div></div>
+<div class="veil" id="cardveil"><div class="sheet" id="cardsheet" role="dialog" aria-modal="true" aria-label="Taş kartı"></div></div>
+<div class="veil home" id="homeveil"><div class="homebox" id="homebox" role="dialog" aria-modal="true" aria-label="Ana menü"></div></div>
+<div class="veil hunt" id="learnveil"><div class="huntbox" id="learnbox" role="dialog" aria-modal="true" aria-label="Taşları Tanıyalım"></div></div>
+<div class="veil" id="profveil"><div class="sheet" id="profsheet" role="dialog" aria-modal="true" aria-label="Profil"></div></div>
+<div class="veil" id="sndveil"><div class="sheet" id="sndsheet" role="dialog" aria-modal="true" aria-label="Ses ayarları"></div></div>
+<div class="veil hunt" id="huntveil"><div class="huntbox" id="huntbox" role="dialog" aria-modal="true" aria-label="Hazine Avı"></div></div>
+<div class="veil" id="talkveil"><div class="sheet" id="talksheet" role="dialog" aria-modal="true" aria-label="Usta Kıvırcık konuşuyor"></div></div>
+
+<div class="kb" id="kb" aria-live="polite"><svg id="kbmole" viewBox="0 0 100 100" aria-hidden="true"></svg><p id="kbt"></p></div>
+<div class="stage" id="stage" aria-hidden="true"></div>
+
+<noscript>Bu oyun için JavaScript gerekir.</noscript>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Küçük yardımcılar ---------- */
+const $=s=>document.querySelector(s);
+const rnd=(a,b)=>Math.round(a+Math.random()*(b-a));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const lc=s=>s.toLocaleLowerCase('tr-TR');
+const buzz=ms=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
+
+/* ---------- Çizimler (düz renkli yüzeyler, gradyan yok) ---------- */
+const hex=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+const mix=(a,b,t)=>{const A=hex(a),B=hex(b);return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('');};
+const P=(pts,fill)=>`<polygon points="${pts}" fill="${fill}" stroke="rgba(255,255,255,.4)" stroke-width="1" stroke-linejoin="round"/>`;
+const ring=(cx,cy,rx,ry,n,off)=>{const a=[];for(let i=0;i<n;i++){const t=(Math.PI*2*i)/n-Math.PI/2+(off||0);a.push([cx+rx*Math.cos(t),cy+ry*Math.sin(t)]);}return a;};
+const pts=p=>p.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ');
+const glint=(x,y,s)=>`<polygon points="${x},${y} ${x+s},${y-s*.2} ${x+s*.35},${y+s*.9}" fill="#fff" opacity=".8"/>`;
+
+function faceted(cx,cy,rxo,ryo,rxi,ryi,n,dark,light,table,off){
+  const o=ring(cx,cy,rxo,ryo,n,off),i=ring(cx,cy,rxi,ryi,n,off);
+  let s=P(pts(o),mix(dark,light,.5));
+  for(let k=0;k<n;k++){
+    const k2=(k+1)%n;
+    const t=(Math.PI*2*(k+.5))/n-Math.PI/2+(off||0);
+    let lum=(Math.cos(t+Math.PI*.75)+1)/2+(k%2?.1:-.1);
+    lum=Math.max(0,Math.min(1,lum));
+    s+=P(pts([o[k],o[k2],i[k2],i[k]]),mix(dark,light,lum));
+  }
+  s+=P(pts(i),table);
+  return s;
+}
+function crystal(cx,base,w,h,cl,cr,ct){
+  const half=w/2,tip=base-h,sh=tip+w*.9;
+  return P(`${cx-half},${base} ${cx-half},${sh} ${cx},${tip} ${cx},${base}`,cl)+
+         P(`${cx},${tip} ${cx+half},${sh} ${cx+half},${base} ${cx},${base}`,cr)+
+         P(`${cx-half},${sh} ${cx},${tip} ${cx+half},${sh} ${cx},${sh+w*.4}`,ct);
+}
+const AKIK_PATH='M18 52 C16 32 34 16 54 18 C76 18 88 36 84 56 C82 76 64 88 46 84 C28 82 20 70 18 52Z';
+const akikBands=()=>{
+  const cols=['#c25a2c','#f2c48d','#a6431f','#f7dfc0','#d9773a','#fff1dd','#b8542a'];
+  const sc=[1,.88,.76,.64,.5,.36,.2];
+  return cols.map((c,i)=>`<path d="${AKIK_PATH}" fill="${c}" transform="translate(50 52) scale(${sc[i]}) translate(-50 -52)"/>`).join('');
+};
+
+/* ---------- Taşlar ----------
+   short: ipucu kelimesi, cq: renk sorusu, fq: bilgi sorusu, grp: karışmasın diye renk grubu */
+const GEMS=[
+ {id:'elmas',name:'Elmas',color:'Berrak, parlak, hafif mavimsi',short:'berrak',grp:'beyaz',glow:'#bfefff',
+  cq:'Berrak, renksiz parlayan taş hangisi?',fq:'Dünyadaki en sert madde olan taş hangisi?',
+  fact:`Elmas dünyadaki en sert maddedir. Onu sadece başka bir elmas çizebilir!`,
+  art:()=>P('35,18 65,18 58,35 42,35','#f2fdff')+P('20,35 35,18 42,35','#a8e6ff')+P('80,35 65,18 58,35','#8fd8f7')+
+          P('20,35 42,35 50,86','#7ccdf0')+P('42,35 58,35 50,86','#c9f2ff')+P('58,35 80,35 50,86','#4aa9d8')+glint(38,22,8)},
+ {id:'zumrut',name:'Zümrüt',color:'Yeşil',short:'yeşil',grp:'ym',glow:'#39e58a',
+  cq:'Yeşil renkli taş hangisi?',fq:'Eski Mısırlıların madenlerinden çıkan yeşil taş hangisi?',
+  fact:`Eski Mısırlılar zümrüt madenleri işletirdi. Bu yeşil taşı çok değerli sayarlardı.`,
+  art:()=>P('30,15 70,15 88,33 88,67 70,85 30,85 12,67 12,33','#138a4d')+
+          P('30,15 70,15 64,28 36,28','#5be394')+P('12,33 12,67 26,60 26,40','#22b06a')+
+          P('88,33 88,67 74,60 74,40','#0f7a43')+P('30,85 70,85 64,72 36,72','#0d6b3b')+
+          P('30,15 36,28 26,40 12,33','#3fcf82')+P('70,15 88,33 74,40 64,28','#2bb571')+
+          P('12,67 26,60 36,72 30,85','#178f52')+P('88,67 74,60 64,72 70,85','#0e6f3e')+
+          P('36,28 64,28 74,40 74,60 64,72 36,72 26,60 26,40','#35c880')+glint(40,34,10)},
+ {id:'yakut',name:'Yakut',color:'Parlak kırmızı',short:'kırmızı',grp:'kirmizi',glow:'#ff4d73',
+  cq:'Kırmızı renkli taş hangisi?',fq:'Safirin kardeşi olan kırmızı taş hangisi?',
+  fact:`Yakut ile safir kardeştir! İkisi de aynı mineralden oluşur. Kırmızı olana yakut denir.`,
+  art:()=>`<rect x="14" y="14" width="72" height="72" rx="24" fill="#a90f33" stroke="rgba(255,255,255,.4)" stroke-width="1"/>`+
+          `<rect x="22" y="22" width="56" height="56" rx="18" fill="#e02350"/>`+
+          P('32,26 68,26 50,50','#ff8aa3')+P('26,32 26,68 50,50','#e02350')+P('74,32 74,68 50,50','#b30f37')+P('32,74 68,74 50,50','#8f0a2b')+glint(30,30,10)},
+ {id:'safir',name:'Safir',color:'Mavi',short:'mavi',grp:'ym',glow:'#4d7dff',
+  cq:'Mavi renkli taş hangisi?',fq:'Yakutun kardeşi olan mavi taş hangisi?',
+  fact:`Safir en çok mavi olur ama pembe, sarı ve yeşil safirler de vardır.`,
+  art:()=>faceted(50,50,30,40,15,24,12,'#0f2f8a','#6b9bff','#2f63e0')+glint(42,32,9)},
+ {id:'ametist',name:'Ametist',color:'Mor',short:'mor',grp:'mor',glow:'#b06cff',
+  cq:'Mor renkli taş hangisi?',fq:'Kuvars ailesinden olan mor taş hangisi?',
+  fact:`Ametist mor renkli bir kuvarstır. Bazen içi ametist dolu koca kayalar bulunur!`,
+  art:()=>`<g transform="rotate(-26 34 88)">${crystal(34,88,18,46,'#a45de6','#7a36c2','#d9b3ff')}</g>`+
+          `<g transform="rotate(28 68 88)">${crystal(68,88,17,40,'#a45de6','#7a36c2','#d9b3ff')}</g>`+
+          crystal(50,90,24,68,'#b26cf2','#8442cf','#e2c2ff')+
+          `<path d="M12 92 Q22 76 40 82 Q54 74 70 82 Q84 78 90 92 Z" fill="#3a2a58"/>`},
+ {id:'opal',name:'Opal',color:'Gökkuşağı renkleri',short:'gökkuşağı',grp:'renkli',glow:'#ff9be0',
+  cq:'Gökkuşağı renklerinde parlayan taş hangisi?',fq:'İçinde biraz su bulunan, gökkuşağı gibi parlayan taş hangisi?',
+  fact:`Opal ışığı kırıp gökkuşağı gibi parlar. İçinde biraz su bile vardır!`,
+  art:()=>`<ellipse cx="50" cy="54" rx="38" ry="32" fill="#f3eefc" stroke="#d8cdf0" stroke-width="1.5"/>`+
+          `<ellipse cx="38" cy="46" rx="15" ry="12" fill="#ff8fc7" opacity=".75"/>`+
+          `<ellipse cx="60" cy="44" rx="14" ry="11" fill="#63e0ff" opacity=".8"/>`+
+          `<ellipse cx="52" cy="64" rx="16" ry="10" fill="#8bf0a0" opacity=".8"/>`+
+          `<ellipse cx="72" cy="58" rx="9" ry="8" fill="#ffd166" opacity=".85"/>`+
+          `<ellipse cx="30" cy="62" rx="8" ry="7" fill="#b18cff" opacity=".8"/>`+
+          `<ellipse cx="38" cy="38" rx="12" ry="6" fill="#fff" opacity=".6" transform="rotate(-25 38 38)"/>`},
+ {id:'topaz',name:'Topaz',color:'Sarı-turuncu',short:'sarı-turuncu',grp:'sari',glow:'#ffc233',
+  cq:'Sarı-turuncu renkli taş hangisi?',fq:'Sarı-turuncu görünen, çok sert taş hangisi?',
+  fact:`Topaz çok sert bir taştır. Sarı, turuncu, pembe ve mavi renkleri vardır.`,
+  art:()=>`<path d="M50 10 C62 30 80 46 80 64 C80 80 66 90 50 90 C34 90 20 80 20 64 C20 46 38 30 50 10 Z" fill="#e8930f" stroke="rgba(255,255,255,.4)" stroke-width="1"/>`+
+          P('50,22 66,58 50,52','#ffdf85')+P('50,22 34,58 50,52','#ffc84a')+P('34,58 50,52 50,80','#f5a623')+
+          P('66,58 50,52 50,80','#c9780a')+P('34,58 50,80 28,68','#ffb733')+P('66,58 50,80 72,68','#b8690a')+glint(42,30,9)},
+ {id:'turkuaz',name:'Turkuaz',color:'Mavi-yeşil',short:'mavi-yeşil',grp:'ym',glow:'#3ee6d6',
+  cq:'Mavi-yeşil renkli taş hangisi?',fq:'"Türk taşı" anlamına gelen taş hangisi?',
+  fact:`Turkuaz, "Türk taşı" demektir. Avrupalılar bu taşı Türkiye üzerinden getirdikleri için ona bu adı vermiş.`,
+  art:()=>`<path d="M22 58 C14 40 30 22 50 20 C72 16 88 34 82 56 C90 74 68 88 48 84 C30 90 14 76 22 58 Z" fill="#37c6bd"/>`+
+          `<path d="M30 34 C40 26 56 26 62 32 C50 30 38 36 30 34Z" fill="#8ff0e6" opacity=".7"/>`+
+          `<path d="M60 66 C72 62 80 66 78 74 C70 80 58 78 60 66Z" fill="#25a39b" opacity=".8"/>`+
+          `<path d="M30 40 L48 50 L44 66 L60 76 M48 50 L66 42 L76 52 M44 66 L30 72" fill="none" stroke="#2b5f5a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`},
+ {id:'akik',name:'Akik',color:'Turuncu ve kahverengi çizgiler',short:'çizgili',grp:'turuncu',glow:'#ff9a4d',
+  cq:'Turuncu-kahve çizgili taş hangisi?',fq:'Çizgileri katman katman oluşan taş hangisi?',
+  fact:`Akik'teki çizgiler, çok uzun yıllar boyunca katman katman oluşur.`,
+  art:akikBands},
+ {id:'kuvars',name:'Kuvars',color:'Beyaz, sivri kristal',short:'beyaz',grp:'beyaz',glow:'#e6f6ff',
+  cq:'Beyaz, sivri kristal taş hangisi?',fq:'Kumun büyük bölümünü oluşturan taş hangisi?',
+  fact:`Kuvars yeryüzünde en çok bulunan minerallerden biridir. Kumun büyük bölümü kuvarstır!`,
+  art:()=>`<g transform="rotate(-20 24 90)">${crystal(24,90,12,30,'#dcefff','#a9c9df','#ffffff')}</g>`+
+          `<g transform="rotate(20 76 90)">${crystal(76,90,14,36,'#dcefff','#a9c9df','#ffffff')}</g>`+
+          crystal(50,92,28,78,'#e8f6ff','#b9d6ea','#ffffff')+
+          `<path d="M14 94 Q28 82 44 88 Q60 80 74 88 Q86 84 90 94 Z" fill="#4d4266"/>`},
+ {id:'garnet',name:'Garnet',color:'Koyu, şarap kırmızısı',short:'koyu kırmızı',grp:'kirmizi',glow:'#d6284b',
+  cq:'Koyu, şarap kırmızısı taş hangisi?',fq:'Adı "nar" sözcüğünden gelen taş hangisi?',
+  fact:`Garnet adı, nar tanesine benzediği için "nar" anlamına gelen bir sözcükten gelir.`,
+  art:()=>faceted(50,50,38,38,19,19,8,'#4f0818','#e0405f','#a5132f',Math.PI/8)+glint(40,38,9)},
+ {id:'aytasi',name:'Ay Taşı',color:'Süt beyazı, mavi parıltı',short:'süt beyazı',grp:'beyaz',glow:'#a5c4ff',
+  cq:'Süt beyazı, mavi parıltılı taş hangisi?',fq:'İçinde mavi bir ışık dolaşan taş hangisi?',
+  fact:`Ay taşının içinde mavi bir ışık dolaşır gibi görünür. Eskiden insanlar onun ay ışığından oluştuğuna inanırdı.`,
+  art:()=>`<circle cx="50" cy="52" r="36" fill="#cfd8ee" stroke="#b3c0e0" stroke-width="1.5"/>`+
+          `<circle cx="50" cy="52" r="30" fill="#e8edfa"/>`+
+          `<path d="M30 60 C34 36 60 26 76 38 C62 34 44 44 42 62 C40 74 52 78 60 76 C46 84 26 78 30 60Z" fill="#79a4ff" opacity=".6"/>`+
+          `<ellipse cx="38" cy="38" rx="12" ry="6" fill="#fff" opacity=".75" transform="rotate(-30 38 38)"/>`}
+];
+const BY=Object.fromEntries(GEMS.map(g=>[g.id,g]));
+const svg=id=>`<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">${BY[id].art()}</svg>`;
+const PEBBLES='<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="36" cy="62" r="9" fill="#6c5f8c"/><circle cx="56" cy="68" r="7" fill="#584d78"/><circle cx="64" cy="52" r="6" fill="#7a6d9c"/><circle cx="46" cy="50" r="5" fill="#584d78"/></svg>';
+
+/* Usta Kıvırcık (köstebek) ve Kristal Kalp */
+const MOLE=`<svg viewBox="0 0 100 100" aria-hidden="true">
+<ellipse cx="50" cy="60" rx="34" ry="32" fill="#8b6a55"/>
+<ellipse cx="50" cy="70" rx="22" ry="17" fill="#a98570"/>
+<circle cx="24" cy="46" r="8" fill="#8b6a55"/><circle cx="76" cy="46" r="8" fill="#8b6a55"/>
+<path d="M22 44 Q50 6 78 44 Z" fill="#ffc857"/>
+<rect x="18" y="41" width="64" height="9" rx="4.5" fill="#f5a623"/>
+<circle cx="50" cy="27" r="7" fill="#fff3c4"/><circle cx="50" cy="27" r="3.5" fill="#fff"/>
+<circle cx="39" cy="58" r="4.5" fill="#1a1230"/><circle cx="61" cy="58" r="4.5" fill="#1a1230"/>
+<circle cx="40.5" cy="56.5" r="1.4" fill="#fff"/><circle cx="62.5" cy="56.5" r="1.4" fill="#fff"/>
+<ellipse cx="50" cy="69" rx="9" ry="6.5" fill="#f28ba5"/>
+<rect x="46" y="76" width="8" height="8" rx="2" fill="#fff"/>
+</svg>`;
+$('#brandmole').innerHTML=MOLE.replace(/^<svg[^>]*>/,'').replace('</svg>','');
+$('#kbmole').innerHTML=MOLE.replace(/^<svg[^>]*>/,'').replace('</svg>','');
+const rosette=id=>`<svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="12,26 8,38 15,34 19,39 21,27" fill="#e0405f"/><polygon points="28,26 32,38 25,34 21,39 19,27" fill="#c21a3c"/><circle cx="20" cy="18" r="14" fill="#ffc857" stroke="#f5a623" stroke-width="2"/><circle cx="20" cy="18" r="10" fill="${BY[id].glow}"/><path d="M20 11l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#fff" stroke="#3a2300" stroke-width=".8" stroke-linejoin="round"/></svg>`;
+const BADGE_AT=3;
+const HEART=(()=>{
+  const O=[[50,90],[28,68],[12,48],[14,28],[30,16],[44,20],[50,34],[56,20],[70,16],[86,28],[88,48],[72,68]];
+  let s='';
+  O.forEach((p,i)=>{const q=O[(i+1)%O.length];const lum=(Math.cos(i*Math.PI/6-Math.PI*.6)+1)/2;s+=P(`50,52 ${p[0]},${p[1]} ${q[0]},${q[1]}`,mix('#6b1a9a','#ff9be0',lum));});
+  s+='<polygon points="34,30 42,26 40,36" fill="#fff" opacity=".75"/>';
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${s}</svg>`;
+})();
+const DOOR_CLOSED='<svg viewBox="0 0 60 70" aria-hidden="true"><path d="M6 68V28Q6 4 30 4Q54 4 54 28V68Z" fill="#4b4266" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/><path d="M13 68V29Q13 11 30 11Q47 11 47 29V68Z" fill="#8a5a34"/><path d="M30 11V68M13 42H47" stroke="#5e3b1f" stroke-width="2"/><circle cx="38" cy="48" r="3" fill="#ffc857"/><rect x="34.5" y="51" width="7" height="7" rx="1.5" fill="#ffc857"/></svg>';
+const DOOR_OPEN='<svg viewBox="0 0 60 70" aria-hidden="true"><path d="M6 68V28Q6 4 30 4Q54 4 54 28V68Z" fill="#4b4266" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/><path d="M13 68V29Q13 11 30 11Q47 11 47 29V68Z" fill="#ffe9a8"/><path d="M30 20V68" stroke="#fff6d6" stroke-width="10" opacity=".55"/><polygon points="13,68 13,29 25,34 25,62" fill="#8a5a34"/></svg>';
+const lamp=on=>`<span class="lamp${on?' on':''}"><svg viewBox="0 0 24 32" width="26" height="34" aria-hidden="true"><rect x="9" y="1" width="6" height="4" rx="2" fill="${on?'#c98a4b':'#4a4062'}"/><rect x="4" y="5" width="16" height="21" rx="6" fill="${on?'#ffc857':'#3a2f55'}" stroke="${on?'#ffe9a8':'#5a4e78'}" stroke-width="1.5"/><rect x="8" y="26" width="8" height="4" rx="2" fill="${on?'#c98a4b':'#4a4062'}"/>${on?'<circle cx="12" cy="15" r="4" fill="#fff6d6"/>':''}</svg></span>`;
+
+/* ---------- Katlar ---------- */
+const G1=['yakut','zumrut','safir','ametist'],G2=['elmas','topaz','opal','turkuaz'],G3=['akik','kuvars','garnet','aytasi'];
+const ALL=GEMS.map(g=>g.id);
+const SORT_KEYS=['kirmizi','ym','beyaz'];
+const SORT=id=>SORT_KEYS.includes(BY[id].grp)?BY[id].grp:null;
+const SORTABLE=ALL.filter(id=>SORT(id));
+const CHESTS=[{k:'kirmizi',label:'Kırmızı taşlar',c:'#e02350'},{k:'ym',label:'Mavi-yeşil taşlar',c:'#2fbfa0'},{k:'beyaz',label:'Beyaz taşlar',c:'#e8f1fb'}];
+
+const LEVELS=[
+ {n:1,name:'Çakıl Tüneli',sub:'Renkten tanı',gems:G1,pool:G1,types:['paintname'],qn:4,easy:true,
+  intro:['1. Kat! Işık sızan kayalarda taş var. Yukarıdaki dört taşı bul!'],
+  ready:'Dört taşı da buldun! Şimdi kapıya gidelim. Bu kapı renkleri bilenlere açılır.'},
+ {n:2,name:'Kristal Mağarası',sub:'Taşın adını öğren',gems:G2,pool:G1.concat(G2),types:['name2pic','pic2name'],qn:6,
+  intro:['Bak, artık puan da kazanıyorsun! Puanın arttıkça unvanın yükselir.','2. Kat: Kristal Mağarası! Burada dört yeni taş saklı.','Kayaya bir kez vur, çatlaktan sızan ışığa bak. Yeni taşların adlarını iyi öğren!'],
+  ready:'Yeni taşlar defterinde! Kapıya geldik. Bu kapı taşların adlarını bilenlere açılır.'},
+ {n:3,name:'Gizli Oda',sub:'Gölge ve bilgi',gems:G3,pool:ALL,types:['silhouette','fact'],qn:6,
+  intro:['Yeni şeyler: aynı taştan 3 tane bulursan rozet kazanırsın. Arka arkaya doğrular da bonus getirir!','3. Kat: Gizli Oda! Son dört taş burada saklı.','Kapıda taşları gölgelerinden ve öğrendiğin bilgilerden tanıyacaksın. Kartlardaki bilgileri oku!'],
+  ready:'Bütün taşları buldun! Kapıdaki gizli soruları çözelim: gölgeleri ve bilgileri bilirsen kapı açılır.'},
+ {n:4,name:'Sandık Odası',sub:'Renklerine göre ayır',dig:4,pool:SORTABLE,types:['sort'],qn:6,
+  intro:['4. Kat: Sandık Odası! Burada taşları renklerine göre sandıklara ayıracağız.','Önce dört taş çıkaralım.'],
+  ready:'Taşlar hazır! Bu kapı, taşları renkli sandıklara ayıranlara açılır.'},
+ {n:5,name:'Kalp Bekçisi',sub:'Son kapı',dig:5,pool:ALL,types:['color','paintname','name2pic','pic2name','silhouette','fact','sort'],qn:8,
+  intro:['Son kat! Kristal Kalp\'i bir bekçi koruyor. Sana bütün taşları soracak.','Önce beş taş çıkar, sonra bekçiyle karşılaşırsın.'],
+  ready:'Bekçi kapının önünde seni bekliyor. Bütün bildiklerini göster, kapıyı aç!'}
+];
+const LV=n=>LEVELS.find(l=>l.n===n);
+const LEVEL_OF={};
+LEVELS.forEach(l=>{if(l.gems)l.gems.forEach(id=>{LEVEL_OF[id]=l.n;});});
+const INTRO=['Merhaba çırak! Ben Usta Kıvırcık. Madenin Kristal Kalbi kayboldu, onu birlikte bulacağız!','Kat kat aşağı ineceğiz. Önce taş kazarız, sonra kat kapısını açarız. Hazır mısın?'];
+const ARENA_TIP=['Kapının önünde 3 fener ışığın var. Yanlış cevapta bir fener söner.','Ama üçü de sönse oyun bitmez, aynı kapıyı yeniden denersin. Doğru cevap 10 puan!'];
+const RANKS=[{p:0,n:'Çırak'},{p:100,n:'Madenci'},{p:220,n:'Usta'},{p:350,n:'Maden Şefi'}];
+
+/* ---------- Oyun durumu ---------- */
+const KEY='hazine-madeni-v3';
+const S={found:{},points:0,level:1,unlocked:1,stars:{},seen:{},digCount:0,finished:false,announced:false,wall:[],left:0,busy:false,adv:1,known:{},name:'',lvGot:{},kivCool:0,kivLast:'',miss:0,snd:{voice:true,music:true,sfx:true,lively:true,rate:1.08,pitch:.75,voiceName:''},huntBest:0};
+const foundCount=()=>GEMS.filter(g=>S.found[g.id]).length;
+const scoreOn=()=>!!S.seen.L2;    /* puan, unvan ve Katlar 2. katta açılır */
+const badgesOn=()=>!!S.seen.L3;   /* rozet ve seri bonusu 3. katta açılır */
+const rankIdx=()=>{let r=0;RANKS.forEach((k,i)=>{if(S.points>=k.p)r=i;});return r;};
+
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){
+      const d=JSON.parse(raw);
+      S.found=d.found||{};S.points=d.points|0;S.unlocked=d.unlocked||1;S.stars=d.stars||{};S.seen=d.seen||{};
+      S.digCount=d.digCount|0;S.finished=!!d.finished;
+      S.level=(typeof d.level==='number')?d.level:1;
+      S.adv=d.adv||(S.level>=1?S.level:1);
+      S.known=d.known||{};S.lvGot=d.lvGot||{};S.name=typeof d.name==='string'?d.name:'';
+      if(d.snd&&typeof d.snd==='object')Object.assign(S.snd,d.snd);S.huntBest=d.huntBest|0;
+    }
+  }catch(e){}
+  Object.keys(S.found).forEach(k=>{if(!BY[k])delete S.found[k];});
+  if(S.level<0||S.level>5)S.level=1;
+  if(S.level>S.unlocked)S.level=S.unlocked;
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify({found:S.found,points:S.points,level:S.level,unlocked:S.unlocked,stars:S.stars,seen:S.seen,adv:S.adv,known:S.known,lvGot:S.lvGot,name:S.name,digCount:S.digCount,finished:S.finished,snd:S.snd,huntBest:S.huntBest}));}catch(e){}
+}
+function renderHeader(){
+  const on=scoreOn();
+  document.querySelector('.pts').hidden=!on;$('#rank').hidden=!on;$('#mapbtn').hidden=!on;
+  $('#pts').textContent=S.points;
+  $('#rank').textContent=RANKS[rankIdx()].n;
+  $('#bookcount').textContent=foundCount()+'/'+GEMS.length;
+}
+
+/* ---------- Konuşma balonu ---------- */
+let talk=null;
+function say(lines,opt,cb){
+  talk={lines,i:0,opt:opt||{},cb};
+  drawTalk();
+  $('#talkveil').classList.add('open');
+}
+function drawTalk(){
+  const t=talk,last=t.i===t.lines.length-1;
+  $('#talksheet').innerHTML=`<div class="who">${MOLE}<b>Usta Kıvırcık</b></div>
+    <p class="bubble">${t.lines[t.i]}</p>
+    <div class="dots" aria-hidden="true">${t.lines.map((_,k)=>`<i class="${k===t.i?'on':''}"></i>`).join('')}</div>
+    <button class="btn" id="talknext" type="button">${last?(t.opt.last||'Tamam'):'Devam'}</button>`;
+  $('#talknext').focus();
+  speak(t.lines[t.i]);
+}
+function closeTalk(){
+  $('#talkveil').classList.remove('open');
+  const cb=talk&&talk.cb;talk=null;
+  if(cb)cb();
+}
+
+/* ---------- Kat hedefi ---------- */
+function goalDone(){
+  const lv=LV(S.level);
+  if(!lv)return false;
+  if(S.stars[lv.n]>0)return true;
+  if(lv.gems)return lv.gems.every(id=>gotHere(lv.n,id));
+  return S.digCount>=lv.dig;
+}
+const gotHere=(n,id)=>!!(S.lvGot[n]&&S.lvGot[n][id]);   /* bu katta, bu seferde kazılan taşlar */
+const goalIds=()=>{const lv=LV(S.level);return lv&&lv.gems?lv.gems.filter(id=>!gotHere(lv.n,id)):[];};
+
+function renderBanner(){
+  const box=$('#quest'),lv=LV(S.level);
+  if(!lv){
+    box.innerHTML='<div class="lvtitle">Serbest kazı</div><p class="qhint">İstediğin kadar kaz. Bulduğun bütün taşlar defterine girer.</p>';
+    return;
+  }
+  let body;
+  if(goalDone()){
+    body=`<div class="ready"><span>Kapıya geldin!</span><button class="qbtn" id="qgo" type="button">Kapıyı aç</button></div>`;
+  }else if(lv.gems){
+    body=`<div class="goals">${lv.gems.map(id=>{
+      const f=gotHere(lv.n,id);
+      return `<div class="goal${f?' got':''}"><span class="gart">${svg(id)}</span><span class="gtxt">${f?BY[id].name:BY[id].short}</span></div>`;
+    }).join('')}</div>`;
+  }else{
+    body=`<div class="goalcount">Taş çıkar: <b>${S.digCount}/${lv.dig}</b></div>`;
+  }
+  box.innerHTML=`<div class="lvtitle">Kat ${lv.n}: ${lv.name}</div>${body}`;
+}
+
+function enterLevel(n,resume){
+  S.level=n;
+  if(n>=1)S.adv=n;
+  if(!resume)S.digCount=0;
+  if(!resume&&n>=1&&!(S.stars[n]>0))S.lvGot[n]={};
+  S.announced=false;
+  const lv=LV(n);
+  if(lv&&S.stars[n]>0)S.announced=true;
+  newWall();renderBanner();save();
+  if(lv&&!S.seen['L'+n]){
+    S.seen['L'+n]=1;save();renderHeader();
+    say(lv.intro,{last:'Kazmaya başla'},checkGoal);
+  }else checkGoal();
+}
+function checkGoal(){
+  const lv=LV(S.level);
+  if(!lv||S.announced||!goalDone())return;
+  S.announced=true;
+  renderBanner();
+  say([lv.ready],{last:'Kapıyı aç'},openArena);
+}
+
+/* ---------- Duvar ---------- */
+const ROCKS=[['#7a6f99','#463c63'],['#6b7b9c','#3b4763'],['#84708a','#50405a'],['#6f8a8f','#3c525a']];
+const CRACK_1='M52 6 L46 26 L58 40 L48 58';
+const CRACK_2='M58 40 L82 48 M48 58 L28 76 M46 26 L22 34 M48 58 L60 86';
+
+function digPool(){
+  const lv=LV(S.level);
+  if(lv)return lv.pool;
+  return ALL;   /* serbest kazıda 12 taşın hepsi çıkar */
+}
+function fillGem(pool){
+  const unc=pool.filter(id=>!S.found[id]);
+  if(unc.length&&Math.random()<.6)return pick(unc);
+  return pick(pool);
+}
+
+function newWall(){
+  const wall=$('#wall');
+  wall.innerHTML='';
+  S.wall=[];S.left=16;S.miss=0;S.kivCool=0;
+  wall.classList.remove('enter');
+  const lv=LV(S.level);
+  const easy=!!(lv&&lv.easy&&!(S.stars[lv.n]>0));
+  for(let i=0;i<16;i++){
+    const cell=document.createElement('div');cell.className='cell';cell.style.setProperty('--i',i);
+    const prize=document.createElement('div');prize.className='prize';
+    const rock=document.createElement('button');rock.type='button';rock.className='rock';rock.dataset.i=i;
+    rock.setAttribute('aria-label','Kaya. Kırmak için dokun.');
+    const col=pick(ROCKS);
+    rock.style.setProperty('--r1',col[0]);rock.style.setProperty('--r2',col[1]);
+    rock.style.setProperty('--br',`${rnd(38,52)}% ${rnd(48,62)}% ${rnd(40,55)}% ${rnd(45,60)}% / ${rnd(50,62)}% ${rnd(40,52)}% ${rnd(48,60)}% ${rnd(42,54)}%`);
+    rock.innerHTML=`<span class="peek"></span><svg class="cracks" viewBox="0 0 100 100" aria-hidden="true" style="transform:scaleX(${Math.random()<.5?-1:1})"><path class="c1" d="${CRACK_1}"/><path class="c2" d="${CRACK_2}"/></svg>`;
+    cell.append(prize,rock);
+    wall.appendChild(cell);
+    const c={hp:easy?1:rnd(2,3),dmg:easy?1:0,gem:null,done:false,cell,prize,rock};
+    if(easy)rock.dataset.dmg='1';
+    S.wall.push(c);
+  }
+  const pool=digPool();
+  const ids=goalIds();
+  const want=Math.max(7,ids.length+3);
+  while(ids.length<want)ids.push(fillGem(pool));
+  shuffle(S.wall.map((_,i)=>i)).slice(0,ids.length).forEach((ci,k)=>{
+    const c=S.wall[ci];
+    c.gem=ids[k];c.rock.dataset.gem='1';c.rock.style.setProperty('--peek',BY[c.gem].glow);
+  });
+  void wall.offsetWidth;
+  wall.classList.add('enter');
+  setTimeout(()=>wall.classList.remove('enter'),900);
+  setStatus(easy?'Işık sızan kayalarda taş var. Dokun ve kır!':'Kayalara dokun. Çatlaktan sızan ışığın rengine bak!');
+}
+function setStatus(t){$('#status').textContent=t;}
+
+/* Usta Kıvırcık'ın kısa tepkileri: sadece önemli anlarda, ara sıra */
+const KIV_NEW=['Vay canına, yeni bir taş!','Harika! Defterin doluyor.','İşte bu! Usta madenciler bile böyle taşı zor bulur.','Yaşasın! Bir taş daha!'];
+const KIV_DUST=['Boş çıktı! Sıradaki kayaya bak.','Hmm, bu kaya cimri çıktı.','Sadece toz! Ama vazgeçmek yok.','Öksürdüm, toz yuttum! Devam edelim.','Boş kaya. Işık sızanlara bakmayı unutma!'];
+const KIV_DUP=['Yine mi bu taş? Sen gerçek bir taş avcısısın!','Bu taş sana âşık olmuş, hep sana geliyor!'];
+function pickLine(a){
+  let t=pick(a);
+  if(a.length>1&&t===S.kivLast)t=pick(a.filter(x=>x!==S.kivLast));
+  S.kivLast=t;return t;
+}
+function react(t,low){
+  showBubble(t,low);speak(t);
+  S.kivCool=0;
+}
+
+/* Büyük konuşma balonu */
+let kbTimer=null;
+function showBubble(t,low){
+  const b=$('#kb');
+  $('#kbt').textContent=t;
+  b.classList.toggle('low',!!low);
+  b.classList.remove('show');void b.offsetWidth;b.classList.add('show');
+  clearTimeout(kbTimer);
+  kbTimer=setTimeout(()=>b.classList.remove('show'),Math.max(2800,1400+t.length*55));
+}
+
+/* ---------- Ses: konuşma, müzik, efektler ---------- */
+const TTS=('speechSynthesis' in window)&&typeof window.SpeechSynthesisUtterance!=='undefined';
+const VOICE_PACK=/*PACK_START*/{}/*PACK_END*/;
+const PACK_ON=Object.keys(VOICE_PACK).length>0;
+let voiceTR=null,curAudio=null,duckT=null;
+function pickVoice(){
+  if(!TTS)return;
+  try{
+    const vs=speechSynthesis.getVoices().filter(v=>/^tr/i.test(v.lang));
+    voiceTR=vs.find(v=>v.name===S.snd.voiceName)||vs[0]||null;
+  }catch(e){}
+}
+if(TTS){pickVoice();try{speechSynthesis.onvoiceschanged=pickVoice;}catch(e){}}
+const cleanSpeech=t=>String(t).replace(/<[^>]*>/g,' ').replace(/\+/g,' artı ').replace(/[−–]/g,' eksi ').replace(/[★☆·"]/g,'').replace(/\s+/g,' ').trim();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* Canlı tonlama: cümleleri ayır, ünlemde yüksek ve hızlı, soruda yükselen ton */
+function liveSegments(t){
+  if(!S.snd.lively)return [{t,r:1,p:1}];
+  const parts=t.match(/[^.!?]+[.!?]*/g)||[t];
+  return parts.map((x,i)=>{
+    x=x.trim();
+    const end=x.slice(-1);
+    let r=1,p=1;
+    if(end==='!'){r=1.1;p=1.2;}
+    else if(end==='?'){r=.98;p=1.12;}
+    else if(i===0&&parts.length>1)p=1.06;
+    p*=1+(Math.random()-.5)*.1;
+    return {t:x,r,p};
+  }).filter(x=>x.t);
+}
+function stopSpeech(){
+  try{if(TTS)speechSynthesis.cancel();}catch(e){}
+  if(curAudio){try{curAudio.pause();}catch(e){}curAudio=null;}
+}
+function playPack(key){
+  const src=VOICE_PACK[key];
+  if(!src)return false;
+  try{
+    duck(true);
+    curAudio=new Audio(src);
+    curAudio.onended=()=>duck(false);
+    const pr=curAudio.play();
+    if(pr&&pr.catch)pr.catch(()=>duck(false));
+  }catch(e){duck(false);}
+  return true;
+}
+function speak(t){
+  if(!t)return;
+  stopSpeech();
+  if(!S.snd.voice)return;
+  const key=cleanSpeech(t);
+  if(PACK_ON){playPack(key);return;}   /* kayıtlı ses varsa, kaydı olmayan satır sessiz kalır */
+  if(!TTS)return;
+  try{
+    const segs=liveSegments(key);
+    duck(true);
+    segs.forEach((g,i)=>{
+      const u=new SpeechSynthesisUtterance(g.t);
+      u.lang='tr-TR';if(voiceTR)u.voice=voiceTR;
+      u.rate=clamp(S.snd.rate*g.r,.5,2);u.pitch=clamp(S.snd.pitch*g.p,0,2);
+      if(i===segs.length-1){u.onend=()=>duck(false);u.onerror=()=>duck(false);}
+      speechSynthesis.speak(u);
+    });
+    clearTimeout(duckT);duckT=setTimeout(()=>duck(false),9000);
+  }catch(e){}
+}
+
+/* WebAudio: basit "maden" müziği ve efektler */
+const AU={ctx:null,music:null,sfx:null,nbuf:null,timer:null,step:0,nextT:0,mode:'mine'};
+function audioInit(){
+  if(AU.ctx)return AU.ctx;
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;
+    if(!C)return null;
+    const c=new C();AU.ctx=c;
+    AU.music=c.createGain();AU.music.connect(c.destination);
+    AU.sfx=c.createGain();AU.sfx.connect(c.destination);
+  }catch(e){AU.ctx=null;}
+  return AU.ctx;
+}
+function duck(on){
+  if(!AU.ctx||!AU.music)return;
+  try{AU.music.gain.setTargetAtTime(on?.3:1,AU.ctx.currentTime,.05);}catch(e){}
+}
+function tone(dest,f,t,d,type,v){
+  const c=AU.ctx,o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(v,t+.012);
+  g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g);g.connect(dest);o.start(t);o.stop(t+d+.03);
+}
+function noise(dest,t,d,v){
+  const c=AU.ctx;
+  if(!AU.nbuf){
+    const n=Math.floor(c.sampleRate*.4);
+    AU.nbuf=c.createBuffer(1,n,c.sampleRate);
+    const a=AU.nbuf.getChannelData(0);
+    for(let i=0;i<n;i++)a[i]=Math.random()*2-1;
+  }
+  const s=c.createBufferSource(),g=c.createGain();
+  s.buffer=AU.nbuf;
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+Math.min(d,.38));
+  s.connect(g);g.connect(dest);s.start(t);s.stop(t+Math.min(d,.38)+.02);
+}
+function sfx(n){
+  if(!S.snd.sfx)return;
+  const c=audioInit();if(!c)return;
+  try{
+    if(c.state==='suspended')c.resume();
+    const t=c.currentTime+.005,d=AU.sfx;
+    const seq=(notes,gap,dur,type,v)=>notes.forEach((f,i)=>tone(d,f,t+i*gap,dur,type,v));
+    switch(n){
+      case 'hit':noise(d,t,.05,.07);tone(d,190,t,.07,'square',.09);break;
+      case 'break':noise(d,t,.18,.16);tone(d,110,t,.15,'triangle',.16);break;
+      case 'gem':seq([523,659,784,1047],.07,.2,'triangle',.13);break;
+      case 'badge':seq([784,988,1175,1568],.09,.25,'triangle',.13);break;
+      case 'star':seq([523,659,784,1047,1319,1568],.06,.25,'square',.07);break;
+      case 'bonus':seq([523,659,784,1047,784,1047,1319,1568],.08,.28,'square',.08);break;
+      case 'right':seq([659,880],.09,.2,'triangle',.14);break;
+      case 'wrong':seq([233,175],.13,.25,'sawtooth',.08);break;
+      case 'clear':seq([523,659,784,659,784,1047],.1,.3,'triangle',.14);break;
+      case 'tick':tone(d,880,t,.05,'square',.05);break;
+      case 'end':seq([784,659,523,392],.14,.3,'triangle',.14);break;
+    }
+  }catch(e){}
+}
+const MEL=[440,0,523.25,0,587.33,0,523.25,0, 440,0,392,0,329.63,0,392,0, 440,0,523.25,0,659.25,0,587.33,0, 523.25,0,440,0,392,0,0,0];
+const BAS=[110,0,0,0,110,0,0,0, 98,0,0,0,98,0,0,0, 110,0,0,0,110,0,0,0, 82.41,0,0,0,98,0,110,0];
+function musicTick(){
+  const c=AU.ctx;
+  if(!c||!S.snd.music)return;
+  const hunt=AU.mode==='hunt';
+  const dur=60/(hunt?150:92)/2;
+  while(AU.nextT<c.currentTime+.25){
+    const k=AU.step%32,m=MEL[k],b=BAS[k];
+    if(m)tone(AU.music,m*(hunt?2:1),AU.nextT,dur*1.7,hunt?'square':'triangle',hunt?.03:.05);
+    if(b)tone(AU.music,b,AU.nextT,dur*2,'triangle',.09);
+    if(hunt&&k%2===0)noise(AU.music,AU.nextT,.03,.02);
+    AU.nextT+=dur;AU.step++;
+  }
+}
+function musicStart(){
+  const c=audioInit();
+  if(!c||AU.timer||!S.snd.music)return;
+  try{if(c.state==='suspended')c.resume();}catch(e){}
+  AU.step=0;AU.nextT=c.currentTime+.1;
+  AU.timer=setInterval(musicTick,60);
+}
+function musicStop(){clearInterval(AU.timer);AU.timer=null;}
+function setMusicMode(m){AU.mode=m;}
+
+/* ---------- Ses ayarları ---------- */
+const ICON_ON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#ffc857"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12" stroke="#ffc857" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>';
+const ICON_OFF='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#8e82ad"/><path d="M16 9l5 6M21 9l-5 6" stroke="#ff8aa0" stroke-width="2" stroke-linecap="round"/></svg>';
+function renderVoice(){
+  const b=$('#voicebtn');
+  b.hidden=false;
+  b.setAttribute('aria-label','Ses ayarları');
+  b.innerHTML=(S.snd.voice||S.snd.music||S.snd.sfx)?ICON_ON:ICON_OFF;
+}
+function openSnd(){
+  const vs=TTS?(()=>{try{return speechSynthesis.getVoices().filter(v=>/^tr/i.test(v.lang));}catch(e){return [];}})():[];
+  const row=(k,label)=>`<div class="snd-row"><span>${label}</span><button class="switch" type="button" role="switch" data-k="${k}" aria-checked="${S.snd[k]}" aria-label="${label}"></button></div>`;
+  let block;
+  if(PACK_ON){
+    block='<p class="sub" style="margin-top:12px">Kıvırcık\'ın kayıtlı sesi kullanılıyor.</p>';
+  }else if(!TTS){
+    block='<p class="sub" style="margin-top:12px">Bu ekranda sesli okuma çalışmıyor. Oyunu Chrome\'da açarsan Kıvırcık konuşur. Müzik ve efektler burada da çalışır.</p>';
+  }else{
+    const pickHtml=vs.length>1
+      ?`<label class="snd-lab" for="sndvoice">Ses seç</label><select id="sndvoice" class="snd-sel">${vs.map(v=>`<option value="${String(v.name).replace(/"/g,'&quot;')}"${v===voiceTR?' selected':''}>${v.name}</option>`).join('')}</select>`
+      :(vs.length?`<p class="sub" style="margin-top:12px">Türkçe ses: ${vs[0].name}</p>`
+        :'<p class="sub" style="margin-top:12px">Telefonunda Türkçe ses bulunamadı. Telefon ayarlarından Türkçe metin okuma sesi yükleyebilirsin.</p>');
+    block=`<div class="snd-block">${pickHtml}
+      <label class="snd-lab" for="sndrate">Hız</label><input id="sndrate" class="snd-sl" type="range" min="0.7" max="1.5" step="0.05" value="${S.snd.rate}">
+      <label class="snd-lab" for="sndpitch">Ses tonu (sola gidince kalınlaşır)</label><input id="sndpitch" class="snd-sl" type="range" min="0.4" max="1.6" step="0.05" value="${S.snd.pitch}"></div>`;
+  }
+  $('#sndsheet').innerHTML=`<h2 style="font-size:26px;margin:0 0 6px;text-align:left">Ses ayarları</h2>
+    ${row('voice','Kıvırcık konuşsun')}${row('music','Müzik')}${row('sfx','Ses efektleri')}${(TTS&&!PACK_ON)?row('lively','Canlı tonlama'):''}
+    ${block}
+    <button class="btn" id="sndtry" type="button">Dene</button>
+    <button class="btn ghost" id="sndclose" type="button">Kapat</button>`;
+  $('#sndveil').classList.add('open');
+  $('#sndclose').focus();
+}
+function closeSnd(){$('#sndveil').classList.remove('open');}
+function applySnd(k){
+  if(k==='music'){if(S.snd.music)musicStart();else musicStop();}
+  if(k==='voice'&&!S.snd.voice)stopSpeech();
+  renderVoice();
+}
+function reactGem(id,first,count){
+  const b=badgesOn();
+  if(b&&count===BADGE_AT)return react('Rozet kazandın! Harikasın!');
+  if(first)return react(pickLine(KIV_NEW));
+  if(b&&count===2)return react('Bu taştan iki oldu! Bir tane daha bulursan rozet kazanırsın.');
+  if(count>BADGE_AT&&Math.random()<.35)return react(pickLine(KIV_DUP));
+}
+function reactDust(){
+  const ids=goalIds();
+  if(ids.length&&S.miss>=8){
+    S.miss=0;
+    return react('Hâlâ arıyorsun, sorun değil! Yukarıdaki renk ipuçlarına bak.');
+  }
+  if(S.kivCool>=3&&Math.random()<.4)react(pickLine(KIV_DUST));
+}
+
+function debris(cell,n,color){
+  for(let k=0;k<n;k++){
+    const d=document.createElement('i');d.className='deb';
+    const a=Math.random()*Math.PI*2,r=24+Math.random()*30,sz=4+Math.random()*5;
+    d.style.setProperty('--dx',(Math.cos(a)*r).toFixed(0)+'px');
+    d.style.setProperty('--dy',(Math.sin(a)*r-6).toFixed(0)+'px');
+    d.style.background=color;d.style.width=d.style.height=sz.toFixed(1)+'px';
+    cell.appendChild(d);
+    setTimeout(()=>d.remove(),620);
+  }
+}
+
+function hit(i){
+  const c=S.wall[i];
+  if(!c||c.done||S.busy)return;
+  c.hp--;c.dmg++;
+  const rk=c.rock;
+  rk.dataset.dmg=String(c.dmg);
+  rk.classList.remove('hit');void rk.offsetWidth;rk.classList.add('hit');
+  debris(c.cell,c.hp<=0?10:4,rk.style.getPropertyValue('--r1')||'#7a6f99');
+  buzz(c.hp<=0?30:10);
+  sfx(c.hp<=0?'break':'hit');
+  if(c.hp<=0)crumble(c);
+}
+function crumble(c){
+  c.done=true;S.left--;
+  c.rock.classList.add('gone');c.rock.disabled=true;
+  S.kivCool++;
+  if(!c.gem||!goalIds().includes(c.gem))S.miss++;else S.miss=0;
+  if(c.gem){
+    c.prize.innerHTML=svg(c.gem);
+    c.prize.style.setProperty('--glow',BY[c.gem].glow);
+    c.prize.classList.add('show','gem');
+    S.busy=true;
+    const id=c.gem;
+    setTimeout(()=>discover(id),650);
+  }else{
+    c.prize.innerHTML=PEBBLES;
+    c.prize.classList.add('show');
+    reactDust();
+    afterBreak();
+  }
+}
+function afterBreak(){
+  if(S.left===0&&!S.busy){
+    setStatus('Duvar bitti! Yeni duvar geliyor…');
+    setTimeout(()=>{if(!S.busy&&S.left===0)newWall();},1100);
+  }
+}
+
+/* ---------- Taş bulundu ---------- */
+function discover(id){
+  const first=!S.found[id];
+  S.found[id]=(S.found[id]||0)+1;
+  if(first)S.points+=5;
+  const lv=LV(S.level);
+  if(lv&&lv.gems&&lv.gems.includes(id)){S.lvGot[lv.n]=S.lvGot[lv.n]||{};S.lvGot[lv.n][id]=true;}
+  if(lv&&lv.dig&&!(S.stars[lv.n]>0))S.digCount++;
+  save();renderHeader();renderBanner();
+  const count=S.found[id];
+  sfx(count===BADGE_AT&&badgesOn()?'badge':'gem');
+  openCard(id,{first,count,after:()=>{
+    S.busy=false;
+    reactGem(id,first,count);
+    afterBreak();
+    checkGoal();
+  }});
+}
+
+let cardAfter=null;
+function openCard(id,o){
+  const g=BY[id];
+  cardAfter=o.after||null;
+  let badge='',extra='';
+  const cnt=o.count||S.found[id]||0;
+  if(o.mode!=='view'){
+    if(o.first)badge='<div class="badge new">Yeni taş!</div>';
+    else if(cnt===BADGE_AT&&badgesOn())badge='<div class="badge new">Yeni rozet!</div>';
+    else badge=`<div class="badge">Koleksiyonunda ${cnt} tane var</div>`;
+    if(cnt===2&&badgesOn())extra=`<p class="nudge">Bir tane daha bulursan ${g.name} rozeti kazanırsın!</p>`;
+    if(cnt===BADGE_AT&&badgesOn())extra=`<div class="rzbig">${rosette(id)}</div><div class="reward">${g.name} rozeti kazandın!</div>`;
+  }else if(cnt>=BADGE_AT&&badgesOn()){
+    extra=`<div class="rzbig">${rosette(id)}</div><div class="reward">${g.name} rozetin var!</div>`;
+  }
+  const reward=(o.first&&o.mode!=='view'&&scoreOn()&&!o.learn)?'<div class="reward">+5 puan</div>':'';
+  const all=(o.first&&foundCount()===GEMS.length)?'<div class="reward">Bütün taşları topladın! Harikasın!</div>':'';
+  $('#cardsheet').innerHTML=`${badge}
+    <div class="gemart" style="--glow:${g.glow}">${svg(id)}</div>
+    <h2>${g.name}</h2>
+    <div class="chip">Renk: ${g.color}</div>
+    <p class="fact">${g.fact}</p>${reward}${all}${extra}
+    <button class="btn" id="cardok" type="button">${o.mode==='view'?'Kapat':(o.learn?'Devam':'Kazmaya devam')}</button>`;
+  $('#cardveil').classList.add('open');
+  $('#cardok').focus();
+  speak(`Bu bir ${g.name}! ${g.fact}`);
+}
+function closeCard(){
+  $('#cardveil').classList.remove('open');
+  const fn=cardAfter;cardAfter=null;
+  if(fn)fn();
+}
+
+/* ---------- Kat kapısı ---------- */
+const A={lv:null,pool:[],targets:[],qi:0,lives:3,streak:0,earned:0,tries:0,cur:null,solved:false,prev:null,rankBefore:0};
+const lamps=()=>[0,1,2].map(i=>lamp(i<A.lives)).join('');
+
+function makeTargets(){
+  const lv=A.lv;
+  const first=shuffle((lv.gems||[]).filter(id=>A.pool.includes(id)));
+  const rest=shuffle(A.pool.filter(id=>!first.includes(id)));
+  return shuffle(first.concat(rest).slice(0,lv.qn));
+}
+
+/* Gölge + renk topları. named=true ise taşın adı da verilir */
+function buildPaintQ(id,pool,named){
+  const g=BY[id];
+  const ok=x=>x!==id&&BY[x].grp!==g.grp&&BY[x].grp!=='renkli';
+  const others=shuffle(pool.filter(ok)).slice(0,2);
+  const fill=shuffle(ALL.filter(x=>ok(x)&&!others.includes(x)));
+  while(others.length<2&&fill.length)others.push(fill.shift());
+  return {type:named?'paintname':'paint',id,
+    title:named?'Bu taşı hangi renge boyayalım?':'Gölgeyi hangi renkle boyayalım?',
+    say:named?`${g.name}! Bu taşı hangi renge boyayalım?`:'Gölgeyi hangi renkle boyayalım?',
+    top:`${named?`<div class="pname">${g.name}</div>`:''}<div class="gemart silh" id="silh" style="--glow:${g.glow}">${svg(id)}</div>`,cls:'',
+    opts:shuffle([id].concat(others)).map(x=>({v:x,html:`<button class="opt ball" type="button" data-v="${x}"><span class="dot" style="background:${BY[x].glow}"></span><span>${BY[x].short}</span></button>`})),
+    answer:id,hint:()=>'O renk olmadı. Taşın rengine bir daha bak!'};
+}
+function makeQ(lv,id){
+  const g=BY[id];
+  let types=lv.types.filter(t=>t!=='sort'||SORT(id)).filter(t=>t!=='paintname'||BY[id].grp!=='renkli');
+  const alt=types.filter(t=>t!==A.prev);
+  if(alt.length)types=alt;
+  const type=pick(types);A.prev=type;
+  const others=pred=>{
+    const p=shuffle(A.pool.filter(x=>x!==id));
+    const a=pred?p.filter(pred):p;
+    return a.concat(p.filter(x=>!a.includes(x))).slice(0,2);
+  };
+  const diff=x=>BY[x].grp!==g.grp;
+  const gemOpts=list=>shuffle([id].concat(list)).map((x,n)=>({v:x,html:`<button class="opt" type="button" data-v="${x}" aria-label="Taş ${n+1}">${svg(x)}</button>`}));
+  const nameOpts=list=>shuffle([id].concat(list)).map(x=>({v:x,html:`<button class="opt name" type="button" data-v="${x}">${BY[x].name}</button>`}));
+  const letter=g.name[0].toLocaleUpperCase('tr-TR');
+  const wrongName=w=>`O taş ${BY[w].name}.`;
+  const art=`<div class="gemart" style="--glow:${g.glow}">${svg(id)}</div>`;
+  switch(type){
+    case 'color':
+      return {type,id,title:g.cq,top:'',cls:'',opts:gemOpts(others(diff)),answer:id,hint:w=>`${wrongName(w)} Renge bir daha bak!`};
+    case 'name2pic':
+      return {type,id,title:`Hangisi ${g.name}?`,top:'',cls:'',opts:gemOpts(others()),answer:id,hint:w=>`${wrongName(w)} İpucu: ${lc(g.color)}.`};
+    case 'pic2name':
+      return {type,id,title:'Bu taşın adı ne?',top:art,cls:'names',opts:nameOpts(others()),answer:id,hint:()=>`Olmadı. İpucu: adı ${letter} harfiyle başlıyor.`};
+    case 'silhouette':
+      return {type,id,title:'Bu gölge hangi taşın?',top:`<div class="gemart silh" id="silh" style="--glow:${g.glow}">${svg(id)}</div>`,cls:'names',opts:nameOpts(others()),answer:id,hint:()=>`Olmadı. İpucu: adı ${letter} harfiyle başlıyor.`};
+    case 'paintname':
+      return buildPaintQ(id,A.pool,true);
+    case 'fact':
+      return {type,id,title:g.fq,top:'',cls:'',opts:gemOpts(others(diff)),answer:id,hint:w=>`${wrongName(w)} İpucu: ${lc(g.color)}.`};
+    default:
+      return {type:'sort',id,title:'Bu taşı hangi sandığa koyalım?',top:art,cls:'names',
+        opts:CHESTS.map(c=>({v:c.k,html:`<button class="opt name" type="button" data-v="${c.k}"><span class="sw" style="background:${c.c}"></span>${c.label}</button>`})),
+        answer:SORT(id),hint:()=>'O sandık olmadı. Taşın rengine bir daha bak!'};
+  }
+}
+
+function openArena(){
+  const lv=LV(S.level);
+  if(!lv)return;
+  A.lv=lv;
+  A.pool=lv.pool.filter(id=>S.found[id]>0);
+  if(A.pool.length<4)A.pool=lv.pool.slice();
+  A.lives=3;A.qi=0;A.streak=0;A.earned=0;A.prev=null;A.rankBefore=rankIdx();
+  A.targets=makeTargets();
+  $('#arenasheet').innerHTML='';
+  $('#arenaveil').classList.add('open');
+  if(!S.seen.arenaTip&&lv.n>=2){S.seen.arenaTip=1;save();say(ARENA_TIP,{last:'Anladım'},nextQ);}
+  else nextQ();
+}
+function closeArena(){$('#arenaveil').classList.remove('open');}
+
+function nextQ(){
+  if(A.qi>=A.lv.qn)return clearLevel();
+  A.cur=makeQ(A.lv,A.targets[A.qi]);
+  A.tries=0;A.solved=false;
+  const q=A.cur;
+  $('#arenasheet').innerHTML=`
+    <div class="ahead">
+      <div class="adoor">${DOOR_CLOSED}<div><div class="alv">Kat ${A.lv.n}: ${A.lv.name}</div><div class="aprog">Soru ${A.qi+1} / ${A.lv.qn}</div></div></div>
+      ${A.lv.n>=2?`<div class="lamps" id="lamps" role="img" aria-label="${A.lives} fener ışığın kaldı">${lamps()}</div>`:''}
+    </div>
+    ${q.top}
+    <h2 class="qq">${q.title}</h2>
+    <div class="opts ${q.cls}">${q.opts.map(o=>o.html).join('')}</div>
+    <p class="fb" id="afb" aria-live="polite"></p>
+    <button class="btn" id="anext" type="button" hidden></button>
+    <button class="linkbtn" id="aexit" type="button">Sonra dene</button>`;
+  speak(q.say||q.title);
+}
+
+function answer(o){
+  if(A.solved||o.disabled)return;
+  const q=A.cur,g=BY[q.id],fb=$('#afb');
+  if(o.dataset.v===q.answer){
+    A.solved=true;o.classList.add('right');
+    document.querySelectorAll('#arenasheet .opt').forEach(x=>{if(x!==o)x.disabled=true;});
+    let p,bonusHit=false;
+    if(A.tries===0){
+      A.streak++;p=10;
+      if(badgesOn()&&A.streak>=3){p+=5;bonusHit=true;}
+    }else{A.streak=0;p=5;}
+    S.points+=p;A.earned+=p;save();renderHeader();
+    const msg=(bonusHit?'Doğru! Seri bonus!':'Doğru!')+(scoreOn()?` +${p}`:'');
+    fb.className='fb ok';
+    fb.textContent=q.type==='sort'?msg.replace('Doğru!','Doğru sandık!'):`${msg} Bu taş ${g.name}.`;
+    speak(bonusHit?'Doğru! Seri bonus!':'Doğru!');
+    const sil=$('#silh');if(sil)sil.classList.add('on');
+    const nx=$('#anext');nx.hidden=false;
+    nx.textContent=A.qi+1>=A.lv.qn?'Katı bitir':'Sonraki soru';
+    nx.focus();
+    buzz(20);
+    sfx('right');
+  }else{
+    const livesOn=A.lv.n>=2;
+    A.tries++;A.streak=0;if(livesOn)A.lives--;
+    o.classList.add('wrong');o.disabled=true;
+    fb.className='fb no';fb.textContent=q.hint(o.dataset.v);
+    speak('Olmadı, bir daha dene!');
+    if(livesOn){$('#lamps').innerHTML=lamps();$('#lamps').setAttribute('aria-label',A.lives+' fener ışığın kaldı');}
+    buzz(60);
+    sfx('wrong');
+    if(livesOn&&A.lives<=0){A.solved=true;setTimeout(showFail,900);}
+  }
+}
+
+function showFail(){
+  $('#arenasheet').innerHTML=`<div class="who">${MOLE}<b>Usta Kıvırcık</b></div>
+    <p class="bubble">Fenerlerin söndü! Sorun değil, usta madenciler de böyle öğrenir. Aynı kapıyı yeniden deneyelim. Puanların duruyor.</p>
+    <div class="lamps" style="justify-content:center;margin-top:12px">${lamp(false)}${lamp(false)}${lamp(false)}</div>
+    <button class="btn" id="aretry" type="button">Yeniden dene</button>
+    <button class="btn ghost" id="aexit" type="button">Kazmaya dön</button>`;
+  $('#aretry').focus();
+}
+function retry(){
+  A.lives=3;A.qi=0;A.streak=0;A.prev=null;
+  A.targets=makeTargets();
+  nextQ();
+}
+
+function clearLevel(){
+  const lv=A.lv,st=A.lives;
+  sfx('clear');
+  const bonus=st*5;
+  S.points+=bonus;A.earned+=bonus;
+  S.stars[lv.n]=Math.max(S.stars[lv.n]||0,st);
+  if(lv.n<5)S.unlocked=Math.max(S.unlocked,lv.n+1);else S.finished=true;
+  save();renderHeader();renderBanner();
+  const up=rankIdx()>A.rankBefore;
+  const starsHtml='<span>★</span>'.repeat(st)+'<span class="off">★</span>'.repeat(3-st);
+  const simple=!scoreOn();
+  const rankLine=(up&&!simple)?`<div class="reward">Yeni unvan: ${RANKS[rankIdx()].n}!</div>`:'';
+  if(lv.n<5){
+    $('#arenasheet').innerHTML=simple
+      ?`<div class="doorbig">${DOOR_OPEN}</div><div class="badge new">Kapı açıldı!</div>
+      <p class="sum">Harika! Şimdi bir kat aşağı inelim.</p>
+      <button class="btn" id="asnext" type="button">Sonraki kat</button>`
+      :`<div class="doorbig">${DOOR_OPEN}</div><div class="badge new">Kapı açıldı!</div>
+      <div class="starsrow" role="img" aria-label="${st} yıldız">${starsHtml}</div>
+      <p class="sum">Bu katta ${A.earned} puan kazandın. Kalan her fener için +5 bonus da var!</p>${rankLine}
+      <button class="btn" id="asnext" type="button">Sonraki kat</button>
+      <button class="btn ghost" id="amap" type="button">Katlar</button>`;
+  }else{
+    $('#arenasheet').innerHTML=`<div class="badge new">Kristal Kalp senin!</div>
+      <div class="gemart heart" style="--glow:#ff9be0">${HEART}</div>
+      <h2>Maden ışıl ışıl!</h2>
+      <p class="sum">Usta Kıvırcık: "Kalp yerine döndü. Sen artık gerçek bir maden ustasısın!"</p>
+      <div class="starsrow" role="img" aria-label="${st} yıldız">${starsHtml}</div>
+      <p class="sum">Toplam puanın: ${S.points}. Unvanın: ${RANKS[rankIdx()].n}.</p>${rankLine}
+      <button class="btn" id="ahunt" type="button">Hazine Avı</button>
+      <button class="btn ghost" id="asnext" type="button">Serbest kazı</button>
+      <button class="btn ghost" id="amap" type="button">Katlar</button>`;
+    speak('Kristal Kalp senin! Maden ışıl ışıl!');
+  }
+  $('#asnext').focus();
+}
+
+/* ---------- Hazine Avı ---------- */
+const HUNT_MS=60000;
+const HUNT_INTRO=['Hazine Avı! Sana 60 saniye veriyorum.','Yukarıda gösterilen yıldız taşı bul. Bulunca süre kazanırsın. Oyun uzadıkça seviye artar: puan artar, süre ödülü azalır, kayalar çoğalır!','Dikkat: bir kez vur, çatlaktan ışık sızıyorsa taş var. Işık yoksa bırak! Boş kayayı kırarsan 2 puan kaybedersin.'];
+/* Seviye, oyunun başından beri geçen süreye göre artar: 0-120 sn, 120-240 sn, 240 sn sonrası.
+   Seviye arttıkça puan artar, süre ödülü azalır, duvar 12'den 16 kayaya çıkar */
+const HUNT_TIERS=[{sec:5000,pts:30},{sec:3000,pts:40},{sec:2000,pts:50}];
+const HUNT_LEVEL_AT=[120000,240000];
+const huntElapsed=()=>H.on?Date.now()-H.t0:0;
+const huntLevel=()=>{const e=huntElapsed();return e>=HUNT_LEVEL_AT[1]?3:(e>=HUNT_LEVEL_AT[0]?2:1);};
+const huntTier=()=>HUNT_TIERS[huntLevel()-1];
+const H={t0:0,lvl:1,on:false,score:0,stars:0,target:null,wall:[],left:0,end:0,cap:HUNT_MS,timer:null,warned:false};
+const huntUnlocked=()=>true;   /* çocuk istediği an seçebilir */
+let stageT=null;
+
+function openHunt(){
+  if(!huntUnlocked())return;
+  if(!S.seen.hunt){
+    S.seen.hunt=1;save();
+    drawHuntUI();$('#huntveil').classList.add('open');
+    say(HUNT_INTRO,{last:'Başla!'},beginHunt);
+  }else beginHunt();
+}
+function drawHuntUI(){
+  $('#huntbox').innerHTML=`
+    <div class="htop"><button class="btn small ghost" id="hexit" type="button">Çık</button><div class="htime" id="htime">60</div><div class="hscore"><b id="hscore">0</b> puan</div></div>
+    <div class="hbar" id="hbar"><i id="hbari"></i></div>
+    <div class="htarget" id="htarget"></div>
+    <div class="wall" id="hwall" aria-label="Hazine Avı duvarı"></div>
+    <p class="hintline" id="hhint">Bir kez vur, ışığa bak. Işık yoksa bırak!</p>
+    <div class="hcount" id="hcount" aria-live="assertive"></div>`;
+}
+function beginHunt(){
+  clearInterval(H.timer);setMusicMode('hunt');
+  H.on=false;H.t0=0;H.lvl=1;H.score=0;H.stars=0;H.warned=false;H.cap=HUNT_MS;H.target=pick(ALL);
+  drawHuntUI();renderTarget();huntWall();
+  $('#huntveil').classList.add('open');
+  const el=$('#hcount');
+  let n=3;
+  const step=()=>{
+    if(!$('#huntveil').classList.contains('open')||!$('#hcount'))return;
+    if(n>0){el.textContent=n;n--;setTimeout(step,700);}
+    else{
+      el.textContent='Kaz!';speak('Kaz!');
+      setTimeout(()=>{if($('#hcount'))$('#hcount').textContent='';},550);
+      H.on=true;H.t0=Date.now();H.lvl=1;H.end=Date.now()+HUNT_MS;
+      H.timer=setInterval(huntTick,100);
+    }
+  };
+  step();
+}
+function exitHunt(home){
+  clearInterval(H.timer);H.on=false;setMusicMode('mine');
+  $('#huntveil').classList.remove('open');
+  $('#stage').classList.remove('on');
+  if(home)openHome();
+}
+function renderTarget(){
+  const g=BY[H.target],k=H.stars%3,t=huntTier();
+  $('#htarget').innerHTML=`<div class="gart">${svg(H.target)}</div>
+    <div class="htxt"><div class="lvtitle">Yıldız taş: ${g.name}</div><div class="qhint">Seviye ${huntLevel()} · Rengi: ${lc(g.short)}. Bulunca +${t.sec/1000} sn, +${t.pts} puan!</div></div>
+    <div class="hstars" role="img" aria-label="${k} / 3 yıldız taş">${'★'.repeat(k)}${'☆'.repeat(3-k)}</div>`;
+}
+function renderScore(){const e=$('#hscore');if(e)e.textContent=H.score;}
+function huntTick(){
+  const left=H.end-Date.now();
+  if(left<=0)return endHunt();
+  const low=left<=10000;
+  $('#htime').textContent=Math.ceil(left/1000);
+  $('#htime').classList.toggle('low',low);
+  $('#hbar').classList.toggle('low',low);
+  $('#hbari').style.width=Math.min(100,left/H.cap*100)+'%';
+  const lvl=huntLevel();
+  if(lvl!==H.lvl){H.lvl=lvl;renderTarget();react(`Seviye ${lvl}! Puan artıyor, süre ödülü azalıyor.`,true);}
+  if(low&&!H.warned){H.warned=true;react('Son on saniye!',true);}
+  const sec=Math.ceil(left/1000);
+  if(sec<=5&&sec!==H.lastSec){H.lastSec=sec;sfx('tick');}
+  if(sec>5)H.lastSec=0;
+  if(left>11000)H.warned=false;
+}
+function makeCell(i){
+  const cell=document.createElement('div');cell.className='cell';cell.style.setProperty('--i',i);
+  const prize=document.createElement('div');prize.className='prize';
+  const rock=document.createElement('button');rock.type='button';rock.className='rock';rock.dataset.i=i;
+  rock.setAttribute('aria-label','Kaya. Kırmak için dokun.');
+  const col=pick(ROCKS);
+  rock.style.setProperty('--r1',col[0]);rock.style.setProperty('--r2',col[1]);
+  rock.style.setProperty('--br',`${rnd(38,52)}% ${rnd(48,62)}% ${rnd(40,55)}% ${rnd(45,60)}% / ${rnd(50,62)}% ${rnd(40,52)}% ${rnd(48,60)}% ${rnd(42,54)}%`);
+  rock.innerHTML=`<span class="peek"></span><svg class="cracks" viewBox="0 0 100 100" aria-hidden="true" style="transform:scaleX(${Math.random()<.5?-1:1})"><path class="c1" d="${CRACK_1}"/><path class="c2" d="${CRACK_2}"/></svg>`;
+  cell.append(prize,rock);
+  return {cell,prize,rock};
+}
+function huntWall(){
+  const wall=$('#hwall');
+  const N=huntLevel()>=2?16:12,G=huntLevel()>=2?9:6;   /* ilk seviyede daha az kaya */
+  wall.innerHTML='';H.wall=[];H.left=N;
+  for(let i=0;i<N;i++){
+    const p=makeCell(i);
+    wall.appendChild(p.cell);
+    H.wall.push({hp:2,dmg:0,gem:null,done:false,cell:p.cell,prize:p.prize,rock:p.rock});
+  }
+  const ids=[H.target];
+  while(ids.length<G)ids.push(pick(ALL));
+  shuffle(H.wall.map((_,i)=>i)).slice(0,ids.length).forEach((ci,k)=>{
+    const c=H.wall[ci];
+    c.gem=ids[k];c.rock.dataset.gem='1';c.rock.style.setProperty('--peek',BY[c.gem].glow);
+  });
+}
+function hEnsure(){
+  if(H.wall.some(c=>!c.done&&c.gem===H.target))return;
+  const open=H.wall.filter(c=>!c.done);
+  if(!open.length)return;
+  const fresh=open.filter(c=>c.dmg===0);
+  const c=pick(fresh.length?fresh:open);
+  c.gem=H.target;c.rock.dataset.gem='1';c.rock.style.setProperty('--peek',BY[H.target].glow);
+}
+function floatText(cell,t,cls){
+  const f=document.createElement('b');f.className='float '+cls;f.textContent=t;
+  cell.appendChild(f);setTimeout(()=>f.remove(),900);
+}
+function hHit(i){
+  const c=H.wall[i];
+  if(!H.on||!c||c.done)return;
+  c.hp--;c.dmg++;
+  const rk=c.rock;
+  rk.dataset.dmg=String(c.dmg);
+  rk.classList.remove('hit');void rk.offsetWidth;rk.classList.add('hit');
+  debris(c.cell,c.hp<=0?10:4,rk.style.getPropertyValue('--r1')||'#7a6f99');
+  buzz(c.hp<=0?30:10);
+  sfx(c.hp<=0?'break':'hit');
+  if(c.hp<=0)hBreak(c);
+}
+function hBreak(c){
+  c.done=true;H.left--;
+  c.rock.classList.add('gone');c.rock.disabled=true;
+  if(c.gem){
+    c.prize.innerHTML=svg(c.gem);
+    c.prize.style.setProperty('--glow',BY[c.gem].glow);
+    c.prize.classList.add('show','gem');
+    if(c.gem===H.target)starFound();
+    else{H.score+=2;floatText(c.cell,'+2','mint');}
+  }else{
+    c.prize.innerHTML=PEBBLES;c.prize.classList.add('show');
+    H.score=Math.max(0,H.score-2);
+    floatText(c.cell,'−2','rose');buzz(60);sfx('wrong');
+  }
+  renderScore();
+  if(H.left===0)setTimeout(()=>{if(H.on){huntWall();hEnsure();}},450);
+}
+function starFound(){
+  const old=H.target;
+  const t=huntTier();
+  H.stars++;
+  H.score+=t.pts;H.end+=t.sec;
+  let pts=t.pts,bonus=false;
+  if(H.stars%3===0){H.score+=50;pts+=50;bonus=true;}   /* her 3 yıldız taşta üçlü bonus: puan var, süre yok */
+  H.cap=Math.max(H.cap,H.end-Date.now());
+  showStage(old,bonus?`ÜÇLÜ BONUS! +${pts}`:`Yıldız taş! +${pts}`);
+  sfx(bonus?'bonus':'star');
+  speak(bonus?'Üçlü bonus! Süper!':pick(['Yıldız taş!','Harika!','Süper!']));
+  buzz([30,40,30]);
+  H.target=pick(ALL.filter(id=>id!==old));
+  hEnsure();renderTarget();
+}
+function showStage(id,text){
+  const st=$('#stage'),g=BY[id];
+  let conf='';
+  for(let i=0;i<26;i++){
+    const a=Math.random()*Math.PI*2,r=120+Math.random()*190;
+    conf+=`<i class="conf" style="--cx:${Math.round(Math.cos(a)*r)}px;--cy:${Math.round(Math.sin(a)*r)}px;background:${pick(['#ffc857','#5eead4','#ff8aa0','#b06cff','#63e0ff',g.glow])}"></i>`;
+  }
+  st.innerHTML=`<div class="rays"></div>${conf}<div class="bigwrap"><div class="big" style="--glow:${g.glow}">${svg(id)}</div><div class="txt">${text}</div></div>`;
+  st.classList.add('on');
+  clearTimeout(stageT);
+  stageT=setTimeout(()=>{st.classList.remove('on');st.innerHTML='';},1300);
+}
+function endHunt(){
+  clearInterval(H.timer);H.on=false;
+  const best=H.score>S.huntBest&&H.score>0;
+  if(best)S.huntBest=H.score;
+  save();
+  const played=Math.max(0,Math.min(Date.now(),H.end)-H.t0)/1000;
+  const avg=H.stars?` Yıldız taş başına ortalama ${(played/H.stars).toFixed(1).replace('.',',')} sn.`:'';
+  $('#stage').classList.remove('on');
+  $('#huntbox').innerHTML=`<div style="margin:auto 0;text-align:center">
+    <div class="badge new">Süre bitti!</div>
+    <h2 style="font-size:46px;margin:10px 0 2px">${H.score} puan</h2>
+    <p class="sum">${H.stars} yıldız taş buldun, ${H.lvl}. seviyeye ulaştın.${avg}${best?' Yeni rekor!':(S.huntBest?' En yüksek puanın: '+S.huntBest+'.':'')}</p>
+    <button class="btn" id="hagain" type="button">Tekrar avlan</button>
+    <button class="btn ghost" id="hclose" type="button">Kapat</button></div>`;
+  speak('Süre bitti!');
+  sfx('end');setMusicMode('mine');
+  $('#hagain').focus();
+}
+
+/* ---------- Katlar haritası ---------- */
+const starTxt=n=>'★'.repeat(n)+'☆'.repeat(3-n);
+function openMap(){
+  $('#mapsheet').innerHTML=`
+    <div class="bookhead"><div><h2>Katlar</h2><p class="sub">Aşağı indikçe sorular zorlaşır</p></div>
+    <button class="btn small ghost" id="mapclose" type="button">Kapat</button></div>
+    <div class="reset" id="mapreset" style="margin:0 0 14px"><button class="btn ghost" id="mapresetask" type="button" style="margin-top:0">↻ Baştan başla</button></div>
+    ${LEVELS.map(l=>{
+      const locked=l.n>S.unlocked;
+      return `<button class="lvl${locked?' locked':''}${S.level===l.n?' now':''}" data-n="${l.n}" type="button"${locked?' disabled':''}>
+        <span class="num">${l.n}</span><span class="lt"><b>${l.name}</b><small>${l.sub}</small></span>
+        <span class="lstars">${locked?'Kilitli':starTxt(S.stars[l.n]||0)}</span></button>`;
+    }).join('')}`;
+  $('#mapveil').classList.add('open');
+  $('#mapclose').focus();
+}
+function closeMap(){$('#mapveil').classList.remove('open');}
+
+/* ---------- Koleksiyon defteri ---------- */
+function openBook(){
+  const n=foundCount();
+  const rz=badgesOn()?GEMS.filter(g=>(S.found[g.id]||0)>=BADGE_AT).length:0;
+  const target=goalIds();
+  $('#booksheet').innerHTML=`
+    <div class="bookhead">
+      <div><h2>Koleksiyon defterim</h2><p class="sub">${n===GEMS.length?'Bütün taşları topladın!':n+' / '+GEMS.length+' taş bulundu'}${rz?' · '+rz+' rozet':''}</p></div>
+      <button class="btn small ghost" id="bookclose" type="button">Kapat</button>
+    </div>
+    <div class="slots">${GEMS.map(g=>{
+      const c=S.found[g.id]||0;
+      if(c)return `<button class="slot" data-id="${g.id}" style="--glow:${g.glow}" type="button">${(c>=BADGE_AT&&badgesOn())?`<span class="rz">${rosette(g.id)}</span>`:''}<span class="art">${svg(g.id)}</span><span class="nm">${g.name}</span>${c>1?`<span class="cnt">×${c}</span>`:''}</button>`;
+      const isT=target.includes(g.id);
+      return `<div class="slot locked${isT?' target':''}"><span class="art">${svg(g.id)}</span><span class="nm">${isT?'Bu katta':'???'}</span></div>`;
+    }).join('')}</div>
+    ${badgesOn()?'<p class="hintline">Aynı taştan 3 tane bulursan o taşın rozetini kazanırsın.</p>':''}
+    <div class="reset" id="reset"><button class="linkbtn" id="resetask" type="button">Baştan başla</button></div>`;
+  $('#bookveil').classList.add('open');
+  $('#bookclose').focus();
+}
+function closeBook(){$('#bookveil').classList.remove('open');}
+function resetGame(){
+  S.found={};S.points=0;S.level=1;S.unlocked=1;S.stars={};S.seen={};S.known={};S.lvGot={};S.digCount=0;S.finished=false;S.huntBest=0;
+  save();closeBook();closeMap();closeArena();exitHunt();exitLearn(false);
+  renderHeader();startGame();
+}
+
+/* ---------- Olaylar ---------- */
+$('#wall').addEventListener('click',e=>{
+  const b=e.target.closest('.rock');
+  if(b)hit(+b.dataset.i);
+});
+$('#quest').addEventListener('click',e=>{if(e.target.closest('#qgo'))openArena();});
+$('#bookbtn').addEventListener('click',openBook);
+$('#mapbtn').addEventListener('click',openMap);
+$('#talksheet').addEventListener('click',e=>{
+  if(!e.target.closest('#talknext'))return;
+  if(talk.i<talk.lines.length-1){talk.i++;drawTalk();}else closeTalk();
+});
+$('#mapsheet').addEventListener('click',e=>{
+  if(e.target.closest('#mapclose'))return closeMap();
+  if(e.target.closest('#mapresetask')){
+    $('#mapreset').innerHTML='Emin misin? Bütün taşların, puanların ve katların silinir, oyun en baştan başlar.<div class="row"><button class="btn small" id="mapresetyes" type="button">Evet, baştan başla</button><button class="btn small ghost" id="mapresetno" type="button">Vazgeç</button></div>';
+    return;
+  }
+  if(e.target.closest('#mapresetyes'))return resetGame();
+  if(e.target.closest('#mapresetno'))return openMap();
+  const b=e.target.closest('.lvl');
+  if(!b||b.disabled)return;
+  if(b.dataset.n==='hunt'){closeMap();return openHunt();}
+  const n=+b.dataset.n;
+  closeMap();
+  if(n!==S.level)enterLevel(n);
+});
+$('#booksheet').addEventListener('click',e=>{
+  if(e.target.closest('#bookclose'))return closeBook();
+  const s=e.target.closest('button.slot');
+  if(s)return openCard(s.dataset.id,{mode:'view'});
+  if(e.target.closest('#resetask')){
+    $('#reset').innerHTML='Emin misin? Bütün taşların ve puanların silinir.<div class="row"><button class="btn small" id="resetyes" type="button">Evet, sıfırla</button><button class="btn small ghost" id="resetno" type="button">Vazgeç</button></div>';
+    return;
+  }
+  if(e.target.closest('#resetyes'))return resetGame();
+  if(e.target.closest('#resetno'))return openBook();
+});
+$('#arenasheet').addEventListener('click',e=>{
+  const o=e.target.closest('.opt');
+  if(o)return answer(o);
+  if(e.target.closest('#anext')){A.qi++;return nextQ();}
+  if(e.target.closest('#aretry'))return retry();
+  if(e.target.closest('#ahunt')){closeArena();return openHunt();}
+  if(e.target.closest('#aexit'))return closeArena();
+  if(e.target.closest('#amap')){closeArena();return openMap();}
+  if(e.target.closest('#asnext')){
+    closeArena();
+    return enterLevel(A.lv.n<5?A.lv.n+1:0);
+  }
+});
+$('#cardsheet').addEventListener('click',e=>{if(e.target.closest('#cardok'))closeCard();});
+$('#huntbox').addEventListener('click',e=>{
+  const r=e.target.closest('#hwall .rock');
+  if(r)return hHit(+r.dataset.i);
+  if(e.target.closest('#hagain'))return beginHunt();
+  if(e.target.closest('#hexit')||e.target.closest('#hclose'))return exitHunt(true);
+});
+$('#voicebtn').addEventListener('click',openSnd);
+$('#sndsheet').addEventListener('click',e=>{
+  const sw=e.target.closest('.switch');
+  if(sw){const k=sw.dataset.k;S.snd[k]=!S.snd[k];sw.setAttribute('aria-checked',String(S.snd[k]));save();applySnd(k);return;}
+  if(e.target.closest('#sndtry')){audioInit();sfx('gem');speak('Merhaba! Ben Usta Kıvırcık.');return;}
+  if(e.target.closest('#sndclose'))closeSnd();
+});
+$('#sndsheet').addEventListener('input',e=>{
+  if(e.target.id==='sndrate'){S.snd.rate=+e.target.value;save();}
+  if(e.target.id==='sndpitch'){S.snd.pitch=+e.target.value;save();}
+});
+$('#sndsheet').addEventListener('change',e=>{
+  if(e.target.id==='sndvoice'){S.snd.voiceName=e.target.value;save();pickVoice();speak('Merhaba! Ben Usta Kıvırcık.');}
+});
+$('#sndveil').addEventListener('click',e=>{if(e.target===$('#sndveil'))closeSnd();});
+document.addEventListener('pointerdown',()=>{
+  audioInit();
+  if(AU.ctx&&AU.ctx.state==='suspended'){try{AU.ctx.resume();}catch(err){}}
+  if(S.snd.music)musicStart();
+},true);
+document.addEventListener('visibilitychange',()=>{
+  if(!AU.ctx)return;
+  try{if(document.hidden)AU.ctx.suspend();else AU.ctx.resume();}catch(err){}
+});
+[['#bookveil',closeBook],['#mapveil',closeMap],['#cardveil',closeCard]].forEach(([sel,fn])=>{
+  $(sel).addEventListener('click',e=>{if(e.target===$(sel))fn();});
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if($('#talkveil').classList.contains('open'))return;
+  if($('#sndveil').classList.contains('open')){closeSnd();return;}
+  if($('#huntveil').classList.contains('open')){exitHunt(true);return;}
+  if($('#profveil').classList.contains('open')){closeProfile();return;}
+  if($('#learnveil').classList.contains('open')){exitLearn(true);return;}
+  if($('#cardveil').classList.contains('open'))closeCard();
+  else if($('#arenaveil').classList.contains('open'))closeArena();
+  else if($('#mapveil').classList.contains('open'))closeMap();
+  else if($('#bookveil').classList.contains('open'))closeBook();
+});
+
+/* ---------- Taşları Tanıyalım ---------- */
+const LEARN_ORDER=[].concat(G1,G2,G3);
+const LEARN_INTRO=['Taşları tanıma zamanı! Her turda üç kaya çıkar. Birinin içinde taş saklı.','Kayalara tek tek dokun. Çatlaktan ışık sızan kayada taş var, ona bir daha dokun!'];
+const LEARN_PROMPTS=['Kayalara tek tek dokun, ışığı bul!','Bu sefer hangi taş çıkacak? Kayalara dokun!','Yeni bir taş geliyor! Işık hangi kayada?'];
+const LEARN_EMPTY=['Işık yok, bu kaya boş! Başka kayaya dokun.','Boş çıktı! Diğer kayalara bak.','Hmm, burada taş yok. Işık nerede?'];
+const LEARN_LIGHT=['Işık var! Bir daha dokun!','Işık sızıyor! Taş burada, bir daha dokun!','İşte ışık! Şimdi kırıp çıkaralım!'];
+const LEARN_INVITE='Maceraya hazır mısın? İlk taşları tanıdın! İstersen Kıvırcık\'la kat kat inip Kristal Kalbi bulalım.';
+const LEARN_EXTRA=['Şimdi taşları ne kadar tanıyorsun? Eğlenceli sorular!','Gölgeyi hangi renkle boyayalım?','Harika! Yeni bir taş gelsin!','Bütün taşları tanıdın! Harikasın!'];
+const Lr={busy:false,wall:[],pool:[],qs:[],q:0,cur:null,solved:false};
+const knownIds=()=>LEARN_ORDER.filter(id=>S.known[id]);
+
+function drawLearnUI(){
+  $('#learnbox').innerHTML=`<div class="htop"><button class="btn small ghost" id="lexit" type="button">Menü</button><div class="ltitle">Taşları Tanıyalım</div><div class="hscore"><b id="lcount">0</b>/12</div></div>
+    <div class="lprog" id="lprog"></div>
+    <div id="lmain"></div>
+    <p class="hintline" id="lhint">Kayalara tek tek dokun. Işık sızan kayada taş saklı!</p>`;
+  renderLProg();
+}
+function renderLProg(){
+  $('#lprog').innerHTML=LEARN_ORDER.map(id=>`<div class="lslot${S.known[id]?' got':''}">${svg(id)}</div>`).join('');
+  $('#lcount').textContent=knownIds().length;
+}
+function openLearn(){
+  drawLearnUI();
+  $('#learnveil').classList.add('open');
+  if(!S.seen.learn){S.seen.learn=1;save();say(LEARN_INTRO,{last:'Başla'},nextDiscovery);}
+  else nextDiscovery();
+}
+function exitLearn(home){
+  $('#learnveil').classList.remove('open');
+  if(home)openHome();
+}
+
+/* Merak turu: üç kaya, birinde ışık var */
+function nextDiscovery(){
+  const target=LEARN_ORDER.find(id=>!S.known[id]);
+  if(!target)return showLearnDone();
+  Lr.busy=false;
+  $('#lmain').innerHTML='<div class="lprompt">Kayalara dokun, ışığı bul!</div><div class="wall lwall" id="lwall"></div>';
+  const wall=$('#lwall');
+  Lr.wall=[];
+  const gemAt=Math.floor(Math.random()*3);
+  for(let i=0;i<3;i++){
+    const p=makeCell(i);
+    wall.appendChild(p.cell);
+    const c={gem:i===gemAt?target:null,done:false,cell:p.cell,prize:p.prize,rock:p.rock};
+    if(c.gem){p.rock.dataset.gem='1';p.rock.style.setProperty('--peek',BY[target].glow);}
+    Lr.wall.push(c);
+  }
+  wall.classList.add('enter');
+  setTimeout(()=>wall.classList.remove('enter'),900);
+  react(pickLine(LEARN_PROMPTS),true);
+}
+function lTap(i){
+  const c=Lr.wall[i];
+  if(!c||c.done||Lr.busy)return;
+  c.dmg=(c.dmg||0)+1;
+  const rk=c.rock;
+  rk.dataset.dmg=String(c.dmg);
+  rk.classList.remove('hit');void rk.offsetWidth;rk.classList.add('hit');
+  debris(c.cell,4,rk.style.getPropertyValue('--r1')||'#7a6f99');
+  sfx('hit');buzz(10);
+  if(!c.gem){
+    /* boş kaya: ilk dokunuşta çatlar (ışık yok), ikincide açılır */
+    if(c.dmg<2){react(pickLine(LEARN_EMPTY),true);return;}
+    c.done=true;
+    rk.classList.add('gone');rk.disabled=true;
+    c.prize.innerHTML=PEBBLES;c.prize.classList.add('show');
+    sfx('break');
+    return;
+  }
+  if(c.dmg<2){react(pickLine(LEARN_LIGHT),true);return;}   /* ışık sızdı, bir daha dokun */
+  c.done=true;
+  rk.classList.add('gone');rk.disabled=true;
+  debris(c.cell,10,rk.style.getPropertyValue('--r1')||'#7a6f99');
+  sfx('break');buzz(30);
+  c.prize.innerHTML=svg(c.gem);
+  c.prize.style.setProperty('--glow',BY[c.gem].glow);
+  c.prize.classList.add('show','gem');
+  Lr.busy=true;
+  setTimeout(()=>recognize(c.gem),650);
+}
+function recognize(id){
+  S.known[id]=true;
+  S.found[id]=S.found[id]||1;
+  save();renderHeader();renderLProg();
+  sfx('gem');
+  openCard(id,{first:true,count:S.found[id],learn:true,after:()=>{
+    Lr.busy=false;
+    if(knownIds().length%4===0)startQuestions(false);else nextDiscovery();
+  }});
+}
+
+/* Soru turu: gölge, renk ve boyama. Puan ve fener yok */
+function startQuestions(all){
+  const known=knownIds();
+  Lr.pool=known.slice();
+  const src=all?known:known.slice(-4);
+  const paintable=src.filter(id=>BY[id].grp!=='renkli');
+  const sil=pick(src);
+  const pn=pick(paintable.filter(x=>x!==sil))||pick(paintable);
+  const paint=pick(paintable.filter(x=>x!==sil&&x!==pn))||pick(paintable);
+  Lr.qs=[{type:'silhouette',id:sil},{type:'paintname',id:pn},{type:'paint',id:paint}];
+  Lr.q=0;
+  react('Şimdi taşları ne kadar tanıyorsun? Eğlenceli sorular!',true);
+  showLQ();
+}
+function showLQ(){
+  const it=Lr.qs[Lr.q];
+  Lr.solved=false;
+  let q;
+  if(it.type==='paint'||it.type==='paintname'){
+    q=buildPaintQ(it.id,Lr.pool,it.type==='paintname');
+  }else{
+    A.pool=Lr.pool.slice();A.prev=null;
+    q=makeQ({types:[it.type]},it.id);
+  }
+  Lr.cur=q;
+  $('#lmain').innerHTML=`${q.top}<h2 class="qq">${q.title}</h2>
+    <div class="opts ${q.cls}">${q.opts.map(o=>o.html).join('')}</div>
+    <p class="fb" id="lfb" aria-live="polite"></p>
+    <button class="btn" id="lnext" type="button" hidden></button>`;
+  speak(q.say||q.title);
+}
+function lAnswer(o){
+  if(Lr.solved||o.disabled)return;
+  const q=Lr.cur,fb=$('#lfb');
+  if(o.dataset.v===q.answer){
+    Lr.solved=true;o.classList.add('right');
+    document.querySelectorAll('#lmain .opt').forEach(x=>{if(x!==o)x.disabled=true;});
+    const g=BY[q.id];
+    fb.className='fb ok';
+    fb.textContent=(q.type==='paint'||q.type==='paintname')?`Taş oluştu! Bu bir ${g.name}.`:`Doğru! Bu taş ${g.name}.`;
+    speak('Doğru!');sfx('right');buzz(20);
+    const sil=$('#silh')||$('#lsil');
+    if(sil)sil.classList.add('on');
+    const nx=$('#lnext');nx.hidden=false;nx.textContent=Lr.q>=2?'Tamam':'Devam';nx.focus();
+  }else{
+    o.classList.add('wrong');o.disabled=true;
+    fb.className='fb no';fb.textContent=q.hint(o.dataset.v);
+    speak('Olmadı, bir daha dene!');sfx('wrong');buzz(60);
+  }
+}
+function showAdventureInvite(){
+  $('#lmain').innerHTML=`<div style="text-align:center;margin-top:8px"><div class="who" style="justify-content:center">${MOLE}</div>
+    <h2 style="font-size:30px;margin:8px 0">Maceraya hazır mısın?</h2>
+    <p class="sum">İlk taşları tanıdın! İstersen Kıvırcık'la kat kat inip Kristal Kalbi bulalım.</p>
+    <button class="btn" id="ladv" type="button">Maceraya başla</button>
+    <button class="btn ghost" id="lmore" type="button">Taşları tanımaya devam</button></div>`;
+  speak(LEARN_INVITE);
+}
+function lNext(){
+  if(Lr.q<2){Lr.q++;return showLQ();}
+  if(knownIds().length>=LEARN_ORDER.length)return showLearnDone();
+  if(!S.seen.learnInvite){S.seen.learnInvite=1;save();return showAdventureInvite();}
+  react('Harika! Yeni bir taş gelsin!',true);
+  nextDiscovery();
+}
+function showLearnDone(){
+  $('#lmain').innerHTML=`<div style="text-align:center;margin-top:8px"><div class="badge new">Hepsini tanıdın!</div>
+    <h2 style="font-size:34px;margin:10px 0">Taş ustası!</h2>
+    <p class="sum">12 taşın hepsini tanıdın. İstersen soru turuyla pekiştir ya da Hazine Avı'nı dene.</p>
+    <button class="btn" id="ladv" type="button">Maceraya başla</button>
+    <button class="btn ghost" id="lquiz" type="button">Soru turu</button>
+    <button class="btn ghost" id="lhunt" type="button">Hazine Avı</button></div>`;
+  react('Bütün taşları tanıdın! Harikasın!',true);
+}
+$('#learnbox').addEventListener('click',e=>{
+  const r=e.target.closest('#lwall .rock');
+  if(r)return lTap(+r.dataset.i);
+  const o=e.target.closest('#lmain .opt');
+  if(o)return lAnswer(o);
+  if(e.target.closest('#lnext'))return lNext();
+  if(e.target.closest('#lquiz'))return startQuestions(true);
+  if(e.target.closest('#ladv')){exitLearn(false);return startAdventure();}
+  if(e.target.closest('#lmore'))return nextDiscovery();
+  if(e.target.closest('#lhunt')){exitLearn(false);return openHunt();}
+  if(e.target.closest('#lexit'))exitLearn(true);
+});
+
+/* ---------- Profil ---------- */
+function openProfile(){
+  const on=scoreOn(),r=rankIdx(),next=RANKS[r+1];
+  const n=foundCount(),kn=knownIds().length;
+  const total=GEMS.reduce((a,g)=>a+(S.found[g.id]||0),0);
+  const stats=(on
+    ?`<div class="pfstat"><b>${RANKS[r].n}</b><small>unvan</small></div><div class="pfstat"><b>${S.points}</b><small>puan</small></div>`
+    :'<div class="pfstat wide"><small>Puan ve unvan 2. katta açılır</small></div>')
+    +`<div class="pfstat"><b>${n}/${GEMS.length}</b><small>taş çeşidi</small></div><div class="pfstat"><b>${total}</b><small>toplam taş</small></div><div class="pfstat wide"><b>${S.huntBest||0}</b><small>Hazine Avı rekoru</small></div>`;
+  const slots=GEMS.map(g=>{
+    const c=S.found[g.id]||0;
+    if(c)return `<button class="slot" data-id="${g.id}" style="--glow:${g.glow}" type="button">${(c>=BADGE_AT&&badgesOn())?`<span class="rz">${rosette(g.id)}</span>`:''}<span class="art">${svg(g.id)}</span><span class="nm">${g.name}</span>${c>1?`<span class="cnt">×${c}</span>`:''}</button>`;
+    return `<div class="slot locked"><span class="art">${svg(g.id)}</span><span class="nm">???</span></div>`;
+  }).join('');
+  const lv=LEVELS.map(l=>{const st=S.stars[l.n]||0;return `<div>${l.n}. kat<b>${st?'★'.repeat(st)+'☆'.repeat(3-st):'–'}</b></div>`;}).join('');
+  $('#profsheet').innerHTML=`<div class="pfhead"><div class="pfav">${MOLE}</div>
+      <div class="pfname"><label class="snd-lab" for="pfname" style="margin-top:0">Adın</label><input id="pfname" class="pfinput" type="text" maxlength="14" placeholder="Maden Çırağı" autocomplete="off"></div></div>
+    <div class="pfstats">${stats}</div>
+    ${(on&&next)?`<p class="sub">${next.n} olmak için ${next.p-S.points} puan kaldı.</p>`:''}
+    <h3 class="pfh">Taş koleksiyonum · ${total} taş</h3>
+    <div class="slots">${slots}</div>
+    <p class="sub" style="margin-top:8px">Taşları tanıma: ${kn}/${GEMS.length}</p>
+    <h3 class="pfh">Katlar</h3>
+    <div class="pflv">${lv}</div>
+    <button class="btn" id="pfclose" type="button">Kapat</button>`;
+  $('#pfname').value=S.name;
+  $('#profveil').classList.add('open');
+}
+function closeProfile(){
+  $('#profveil').classList.remove('open');
+  if($('#homeveil').classList.contains('open'))openHome();
+}
+$('#profsheet').addEventListener('click',e=>{
+  if(e.target.closest('#pfclose'))return closeProfile();
+  const b=e.target.closest('button.slot');
+  if(b)openCard(b.dataset.id,{mode:'view'});
+});
+$('#profsheet').addEventListener('input',e=>{
+  if(e.target.id==='pfname'){S.name=e.target.value.trim().slice(0,14);save();}
+});
+$('#profveil').addEventListener('click',e=>{if(e.target===$('#profveil'))closeProfile();});
+
+/* ---------- Ana menü ve Taşları Tanıyalım ---------- */
+const STAR_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ffc857" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
+const PICK_ICON='<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 27 L20 14" stroke="#7a4a1c" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M7 11 C13 2 26 4 29 15 C24 10 16 9 7 11 Z" fill="#3a2300"/></svg>';
+const ROCK_ICON='<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 25 C3 14 10 6 18 6 C26 6 30 14 27 25 Z" fill="#8b80ad"/><path d="M11 12 C13 9 17 8 20 9" stroke="#fff" stroke-opacity=".5" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+function openHome(){
+  const adv=S.seen.start?`Devam et: ${S.adv}. Kat`:'Kat kat in, Kristal Kalbi bul';
+  const chip=`<button class="profchip" id="profchip" type="button">${MOLE}<span><b>${S.name?S.name.replace(/[<>&"]/g,''):'Maden Çırağı'}</b><small>${scoreOn()?RANKS[rankIdx()].n+' · '+S.points+' puan':foundCount()+'/'+GEMS.length+' taş'}</small></span></button>`;
+  $('#homebox').innerHTML=`${chip}<div class="homehero">${MOLE}<h1>Hazine Madeni</h1><p>İstediğini seç, hepsi açık!</p></div>
+    <button class="mode learn" data-mode="learn" type="button"><span class="mi">${svg('ametist')}</span><span><b>Taşları Tanıyalım</b><small>${knownIds().length?'Devam et: '+knownIds().length+'/12 taş':'Kayalara dokun, taşı tanı'}</small></span></button>
+    <button class="mode free" data-mode="free" type="button"><span class="mi">${ROCK_ICON}</span><span><b>Serbest Kazı</b><small>Sorusuz, istediğin kadar kaz</small></span></button>
+    <button class="mode adv" data-mode="adv" type="button"><span class="mi">${PICK_ICON}</span><span><b>Kıvırcık ile Macera</b><small>${adv}</small></span></button>
+    <button class="mode hunt" data-mode="hunt" type="button"><span class="mi">${STAR_ICON}</span><span><b>Hazine Avı</b><small>60 saniyede yıldız taşları bul${S.huntBest?'. En yüksek: '+S.huntBest:''}</small></span></button>
+    <div class="reset" id="homereset"><button class="btn ghost" id="homeresetask" type="button" style="margin-top:4px">↻ Baştan başla</button></div>`;
+  $('#homeveil').classList.add('open');
+}
+function closeHome(){$('#homeveil').classList.remove('open');}
+function startAdventure(){
+  if(!S.seen.start){
+    say(INTRO,{last:'Hazırım!'},()=>{S.seen.start=1;save();enterLevel(1);});
+  }else enterLevel(S.adv||1,true);
+}
+$('#homeveil').addEventListener('click',e=>{
+  if(e.target.closest('#profchip'))return openProfile();
+  if(e.target.closest('#homeresetask')){
+    $('#homereset').innerHTML='Emin misin? Bütün taşların, puanların ve katların silinir, oyun en baştan başlar.<div class="row"><button class="btn small" id="homeresetyes" type="button">Evet, baştan başla</button><button class="btn small ghost" id="homeresetno" type="button">Vazgeç</button></div>';
+    return;
+  }
+  if(e.target.closest('#homeresetyes'))return resetGame();
+  if(e.target.closest('#homeresetno'))return openHome();
+  const b=e.target.closest('.mode');
+  if(!b)return;
+  closeHome();
+  const m=b.dataset.mode;
+  if(m==='adv')startAdventure();
+  else if(m==='hunt')openHunt();
+  else if(m==='learn')openLearn();
+  else enterLevel(0);
+});
+$('#homebtn').addEventListener('click',openHome);
+
+/* ---------- Başlat ---------- */
+function startGame(){
+  newWall();renderBanner();
+  openHome();
+}
+load();
+renderHeader();
+renderVoice();
+startGame();
+})();
+</script>
+</body>
+</html>
